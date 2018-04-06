@@ -8,7 +8,7 @@ import colorsys
 import os
 import random
 import time
-
+import cv2
 import numpy as np
 from keras import backend as K
 from keras.models import load_model
@@ -71,18 +71,10 @@ class YOLO(object):
 
     def detect_image(self, image):
         start = time.time()
-        is_fixed_size = self.model_image_size != (None, None)
+        resized_image = image.resize(tuple(reversed(self.model_image_size)), Image.BICUBIC)
+        image_data = np.array(resized_image, dtype='float32')
 
-        if is_fixed_size:  # TODO: When resizing we can use minibatch input.
-            resized_image = image.resize(tuple(reversed(self.model_image_size)), Image.BICUBIC)
-            image_data = np.array(resized_image, dtype='float32')
-        else:
-            # Due to skip connection + max pooling in YOLO_v2, inputs must have
-            # width and height as multiples of 32.
-            new_image_size = (image.width - (image.width % 32),image.height - (image.height % 32))
-            resized_image = image.resize(new_image_size, Image.BICUBIC)
-            image_data = np.array(resized_image, dtype='float32')
-            print(image_data.shape)
+        print(image_data.shape)
         image_data /= 255.
         image_data = np.expand_dims(image_data, 0)  # Add batch dimension.
 
@@ -139,12 +131,17 @@ class YOLO(object):
         self.sess.close()
 
 def detect_video(yolo):
-    from VideoCapture import Device
-    camera = Device()
+    vid = cv2.VideoCapture(0)  ### TODO: will video path other than 0 be used?
+    if not vid.isOpened():
+        raise IOError("Couldn't open webcam")
     while True:
-        frame = camera.getImage()
-        image = yolo.detect_image(frame)
-        image.show()
+        return_value, frame = vid.read()
+        image = Image.fromarray(frame)
+        image = yolo.detect_image(image)
+        result = np.asarray(image)
+        cv2.imshow("result",result)
+        if cv2.waitKey(1) & 0xFF == ord('q'):
+            break
     yolo.close_session()
 
 
@@ -164,5 +161,5 @@ def detect_img(yolo):
 
 if __name__ == '__main__':
     yolo = YOLO()
-    detect_img(yolo)
-    #detect_video(yolo)
+    #detect_img(yolo)
+    detect_video(yolo)
