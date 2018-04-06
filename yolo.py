@@ -71,10 +71,18 @@ class YOLO(object):
 
     def detect_image(self, image):
         start = time.time()
+        is_fixed_size = self.model_image_size != (None, None)
 
-        resized_image = image.resize(tuple(reversed(self.model_image_size)), Image.BICUBIC)
-        image_data = np.array(resized_image, dtype='float32')
-
+        if is_fixed_size:  # TODO: When resizing we can use minibatch input.
+            resized_image = image.resize(tuple(reversed(self.model_image_size)), Image.BICUBIC)
+            image_data = np.array(resized_image, dtype='float32')
+        else:
+            # Due to skip connection + max pooling in YOLO_v2, inputs must have
+            # width and height as multiples of 32.
+            new_image_size = (image.width - (image.width % 32),image.height - (image.height % 32))
+            resized_image = image.resize(new_image_size, Image.BICUBIC)
+            image_data = np.array(resized_image, dtype='float32')
+            print(image_data.shape)
         image_data /= 255.
         image_data = np.expand_dims(image_data, 0)  # Add batch dimension.
 
