@@ -8,11 +8,13 @@ import colorsys
 import os
 import random
 import time
-
+import cv2
 import numpy as np
 from keras import backend as K
 from keras.models import load_model
 from PIL import Image, ImageDraw, ImageFont
+from timeit import time
+from timeit import default_timer as timer  ### to calculate FPS
 
 from yolo3.model import yolo_eval
 
@@ -71,10 +73,10 @@ class YOLO(object):
 
     def detect_image(self, image):
         start = time.time()
-
         resized_image = image.resize(tuple(reversed(self.model_image_size)), Image.BICUBIC)
         image_data = np.array(resized_image, dtype='float32')
 
+        print(image_data.shape)
         image_data /= 255.
         image_data = np.expand_dims(image_data, 0)  # Add batch dimension.
 
@@ -131,12 +133,34 @@ class YOLO(object):
         self.sess.close()
 
 def detect_video(yolo):
-    from VideoCapture import Device
-    camera = Device()
+    vid = cv2.VideoCapture(0)  ### TODO: will video path other than 0 be used?
+    if not vid.isOpened():
+        raise IOError("Couldn't open webcam")
+    accum_time = 0
+    curr_fps = 0
+    fps = "FPS: ??"
+    prev_time = timer()
     while True:
-        frame = camera.getImage()
-        image = yolo.detect_image(frame)
-        image.show()
+        return_value, frame = vid.read()
+        image = Image.fromarray(frame)
+        image = yolo.detect_image(image)
+        result = np.asarray(image)
+
+        curr_time = timer()
+        exec_time = curr_time - prev_time
+        prev_time = curr_time
+        accum_time = accum_time + exec_time
+        curr_fps = curr_fps + 1
+        if accum_time > 1:
+            accum_time = accum_time - 1
+            fps = "FPS: " + str(curr_fps)
+            curr_fps = 0
+        cv2.putText(result, text=fps, org=(3, 15), fontFace=cv2.FONT_HERSHEY_SIMPLEX, fontScale=0.50,
+                    color=(255, 0, 0), thickness=2)
+
+        cv2.imshow("result",result)
+        if cv2.waitKey(1) & 0xFF == ord('q'):
+            break
     yolo.close_session()
 
 
@@ -156,5 +180,5 @@ def detect_img(yolo):
 
 if __name__ == '__main__':
     yolo = YOLO()
-    detect_img(yolo)
-    #detect_video(yolo)
+    #detect_img(yolo)
+    detect_video(yolo)
