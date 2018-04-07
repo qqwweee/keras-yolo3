@@ -6,7 +6,7 @@
 
 A Keras implementation of YOLOv3 (Tensorflow backend) inspired by [allanzelener/YAD2K](https://github.com/allanzelener/YAD2K).
 
-Training is not supported.
+Working On to Train...
 
 ---
 
@@ -23,3 +23,6 @@ python yolo.py
 or 
 python yolo_video.py
 ```
+TODO 
+1.Add Training
+2.Remove PIL
