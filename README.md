@@ -20,4 +20,6 @@ Training is not supported.
 wget https://pjreddie.com/media/files/yolov3.weights
 python convert.py yolov3.cfg yolov3.weights model_data/yolo.h5
 python yolo.py
+or 
+python yolo_video.py
 ```
