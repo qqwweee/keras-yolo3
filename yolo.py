@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 # -*- coding: utf-8 -*-
 """
-Run a YOLO_v3 style detection model on test images or videos.
+Run a YOLO_v3 style detection model on test images.
 """
 
 import colorsys
@@ -36,7 +36,7 @@ class YOLO(object):
             class_names = f.readlines()
         class_names = [c.strip() for c in class_names]
         return class_names
-        
+
     def _get_anchors(self):
         anchors_path = os.path.expanduser(self.anchors_path)
         with open(anchors_path) as f:
@@ -51,9 +51,9 @@ class YOLO(object):
 
         self.yolo_model = load_model(model_path)
         print('{} model, anchors, and classes loaded.'.format(model_path))
-        
+
         self.model_image_size = self.yolo_model.layers[0].input_shape[1:3]
-        
+
         # Generate colors for drawing bounding boxes.
         hsv_tuples = [(x / len(self.class_names), 1., 1.)
                       for x in range(len(self.class_names))]
@@ -64,7 +64,7 @@ class YOLO(object):
         random.seed(10101)  # Fixed seed for consistent colors across runs.
         random.shuffle(self.colors)  # Shuffle colors to decorrelate adjacent classes.
         random.seed(None)  # Reset seed to default.
-        
+
         # Generate output tensor targets for filtered bounding boxes.
         # TODO: Wrap these backend operations with Keras layers.
         self.input_image_shape = K.placeholder(shape=(2, ))
@@ -87,33 +87,33 @@ class YOLO(object):
                 self.input_image_shape: [image.size[1], image.size[0]],
                 K.learning_phase(): 0
             })
-        
+
         print('Found {} boxes for {}'.format(len(out_boxes), 'img'))
 
         font = ImageFont.truetype(font='font/FiraMono-Medium.otf', size=np.floor(3e-2 * image.size[1] + 0.5).astype('int32'))
         thickness = (image.size[0] + image.size[1]) // 300
-        
+
         for i, c in reversed(list(enumerate(out_classes))):
             predicted_class = self.class_names[c]
             box = out_boxes[i]
             score = out_scores[i]
-            
+
             label = '{} {:.2f}'.format(predicted_class, score)
             draw = ImageDraw.Draw(image)
             label_size = draw.textsize(label, font)
-            
+
             top, left, bottom, right = box
             top = max(0, np.floor(top + 0.5).astype('int32'))
             left = max(0, np.floor(left + 0.5).astype('int32'))
             bottom = min(image.size[1], np.floor(bottom + 0.5).astype('int32'))
             right = min(image.size[0], np.floor(right + 0.5).astype('int32'))
             print(label, (left, top), (right, bottom))
-            
+
             if top - label_size[1] >= 0:
                 text_origin = np.array([left, top - label_size[1]])
             else:
                 text_origin = np.array([left, top + 1])
-                
+
             # My kingdom for a good redistributable image drawing library.
             for i in range(thickness):
                 draw.rectangle(
@@ -124,7 +124,7 @@ class YOLO(object):
                 fill=self.colors[c])
             draw.text(text_origin, label, fill=(0, 0, 0), font=font)
             del draw
-            
+
         end = time.time()
         print(end - start)
         return image
@@ -132,8 +132,9 @@ class YOLO(object):
     def close_session(self):
         self.sess.close()
 
-def detect_video(yolo):
-    vid = cv2.VideoCapture(0)  ### TODO: will video path other than 0 be used?
+
+def detect_video(yolo,video_path):
+    vid = cv2.VideoCapture(video_path)  ### TODO: will video path other than 0 be used?
     if not vid.isOpened():
         raise IOError("Couldn't open webcam")
     accum_time = 0
@@ -145,7 +146,6 @@ def detect_video(yolo):
         image = Image.fromarray(frame)
         image = yolo.detect_image(image)
         result = np.asarray(image)
-
         curr_time = timer()
         exec_time = curr_time - prev_time
         prev_time = curr_time
@@ -157,7 +157,7 @@ def detect_video(yolo):
             curr_fps = 0
         cv2.putText(result, text=fps, org=(3, 15), fontFace=cv2.FONT_HERSHEY_SIMPLEX, fontScale=0.50,
                     color=(255, 0, 0), thickness=2)
-
+        cv2.namedWindow("result", cv2.WINDOW_NORMAL)
         cv2.imshow("result",result)
         if cv2.waitKey(1) & 0xFF == ord('q'):
             break
@@ -178,7 +178,6 @@ def detect_img(yolo):
     yolo.close_session()
 
 
+
 if __name__ == '__main__':
-    yolo = YOLO()
-    #detect_img(yolo)
-    detect_video(yolo)
+    detect_img(YOLO())
