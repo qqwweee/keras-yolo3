@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 # -*- coding: utf-8 -*-
 """
-Run a YOLO_v3 style detection model on test images or videos.
+Run a YOLO_v3 style detection model on test images.
 """
 
 import colorsys
@@ -20,7 +20,7 @@ from yolo3.model import yolo_eval
 
 class YOLO(object):
     def __init__(self):
-        self.model_path = 'model_data/yolov3_608.h5'
+        self.model_path = 'model_data/yolo.h5'
         self.anchors_path = 'model_data/yolo_anchors.txt'
         self.classes_path = 'model_data/coco_classes.txt'
         self.score = 0.3
