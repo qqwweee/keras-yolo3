@@ -132,6 +132,7 @@ class YOLO(object):
     def close_session(self):
         self.sess.close()
 
+
 def detect_video(yolo,video_path):
     vid = cv2.VideoCapture(video_path)  ### TODO: will video path other than 0 be used?
     if not vid.isOpened():
@@ -144,7 +145,6 @@ def detect_video(yolo,video_path):
         return_value, frame = vid.read()
         image = Image.fromarray(frame)
         image = yolo.detect_image(image)
-
         result = np.asarray(image)
         curr_time = timer()
         exec_time = curr_time - prev_time
