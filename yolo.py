@@ -176,10 +176,3 @@ def detect_img(yolo):
             r_image = yolo.detect_image(image)
             r_image.show()
     yolo.close_session()
-
-
-if __name__ == '__main__':
-    video_path='path2your-video'
-    yolo = YOLO()
-    #detect_img(yolo)
-    detect_video(yolo,video_path)
