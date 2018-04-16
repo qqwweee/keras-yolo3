@@ -7,16 +7,16 @@ Run a YOLO_v3 style detection model on test images.
 import colorsys
 import os
 import random
-import time
-import cv2
-import numpy as np
-from keras import backend as K
-from keras.models import load_model
-from PIL import Image, ImageDraw, ImageFont
 from timeit import time
 from timeit import default_timer as timer  ### to calculate FPS
 
+import numpy as np
+from keras import backend as K
+from keras.models import load_model
+from PIL import Image, ImageFont, ImageDraw
+
 from yolo3.model import yolo_eval
+from yolo3.utils import letterbox_image
 
 class YOLO(object):
     def __init__(self):
@@ -53,6 +53,7 @@ class YOLO(object):
         print('{} model, anchors, and classes loaded.'.format(model_path))
 
         self.model_image_size = self.yolo_model.layers[0].input_shape[1:3]
+        self.is_fixed_size = self.model_image_size != (None, None)
 
         # Generate colors for drawing bounding boxes.
         hsv_tuples = [(x / len(self.class_names), 1., 1.)
@@ -66,15 +67,22 @@ class YOLO(object):
         random.seed(None)  # Reset seed to default.
 
         # Generate output tensor targets for filtered bounding boxes.
-        # TODO: Wrap these backend operations with Keras layers.
         self.input_image_shape = K.placeholder(shape=(2, ))
-        boxes, scores, classes = yolo_eval(self.yolo_model.output, self.anchors, len(self.class_names), self.input_image_shape, score_threshold=self.score, iou_threshold=self.iou)
+        boxes, scores, classes = yolo_eval(self.yolo_model.output, self.anchors,
+                len(self.class_names), self.input_image_shape,
+                score_threshold=self.score, iou_threshold=self.iou)
         return boxes, scores, classes
 
     def detect_image(self, image):
         start = time.time()
-        resized_image = image.resize(tuple(reversed(self.model_image_size)), Image.BICUBIC)
-        image_data = np.array(resized_image, dtype='float32')
+
+        if self.is_fixed_size:
+            boxed_image = letterbox_image(image, tuple(reversed(self.model_image_size)))
+        else:
+            new_image_size = (image.width - (image.width % 32),
+                              image.height - (image.height % 32))
+            boxed_image = letterbox_image(image, new_image_size)
+        image_data = np.array(boxed_image, dtype='float32')
 
         print(image_data.shape)
         image_data /= 255.
@@ -90,7 +98,8 @@ class YOLO(object):
 
         print('Found {} boxes for {}'.format(len(out_boxes), 'img'))
 
-        font = ImageFont.truetype(font='font/FiraMono-Medium.otf', size=np.floor(3e-2 * image.size[1] + 0.5).astype('int32'))
+        font = ImageFont.truetype(font='font/FiraMono-Medium.otf',
+                    size=np.floor(3e-2 * image.size[1] + 0.5).astype('int32'))
         thickness = (image.size[0] + image.size[1]) // 300
 
         for i, c in reversed(list(enumerate(out_classes))):
@@ -133,10 +142,11 @@ class YOLO(object):
         self.sess.close()
 
 
-def detect_video(yolo,video_path):
-    vid = cv2.VideoCapture(video_path)  ### TODO: will video path other than 0 be used?
+def detect_video(yolo, video_path):
+    import cv2
+    vid = cv2.VideoCapture(video_path)
     if not vid.isOpened():
-        raise IOError("Couldn't open webcam")
+        raise IOError("Couldn't open webcam or video")
     accum_time = 0
     curr_fps = 0
     fps = "FPS: ??"
@@ -155,10 +165,10 @@ def detect_video(yolo,video_path):
             accum_time = accum_time - 1
             fps = "FPS: " + str(curr_fps)
             curr_fps = 0
-        cv2.putText(result, text=fps, org=(3, 15), fontFace=cv2.FONT_HERSHEY_SIMPLEX, fontScale=0.50,
-                    color=(255, 0, 0), thickness=2)
+        cv2.putText(result, text=fps, org=(3, 15), fontFace=cv2.FONT_HERSHEY_SIMPLEX,
+                    fontScale=0.50, color=(255, 0, 0), thickness=2)
         cv2.namedWindow("result", cv2.WINDOW_NORMAL)
-        cv2.imshow("result",result)
+        cv2.imshow("result", result)
         if cv2.waitKey(1) & 0xFF == ord('q'):
             break
     yolo.close_session()

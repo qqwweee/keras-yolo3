@@ -29,7 +29,11 @@ parser.add_argument(
     '--plot_model',
     help='Plot generated Keras model and save as image.',
     action='store_true')
-
+parser.add_argument(
+    '-n',
+    '--not_fixed_input',
+    help='Set input layer\'s width and height to None.',
+    action='store_true')
 
 def unique_config_sections(config_file):
     """Convert all config sections to have unique names.
@@ -76,9 +80,12 @@ def _main(args):
     cfg_parser.read_file(unique_config_file)
 
     print('Creating Keras model.')
-    image_height = int(cfg_parser['net_0']['height'])
-    image_width = int(cfg_parser['net_0']['width'])
-    input_layer = Input(shape=(image_height, image_width, 3))
+    if args.not_fixed_input:
+        input_layer = Input(shape=(None, None, 3))
+    else:
+        image_height = int(cfg_parser['net_0']['height'])
+        image_width = int(cfg_parser['net_0']['width'])
+        input_layer = Input(shape=(image_height, image_width, 3))
     prev_layer = input_layer
     all_layers = []
 
