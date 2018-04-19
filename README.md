@@ -23,6 +23,3 @@ python yolo.py
 or 
 python yolo_video.py
 ```
-TODO 
-1.Add Training
-2.Remove PIL

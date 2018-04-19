@@ -12,7 +12,8 @@ from collections import defaultdict
 
 import numpy as np
 from keras import backend as K
-from keras.layers import (Conv2D, Input, Add, UpSampling2D, Concatenate)
+from keras.layers import (Conv2D, Input, ZeroPadding2D, Add,
+                          UpSampling2D, Concatenate)
 from keras.layers.advanced_activations import LeakyReLU
 from keras.layers.normalization import BatchNormalization
 from keras.models import Model
@@ -28,11 +29,6 @@ parser.add_argument(
     '-p',
     '--plot_model',
     help='Plot generated Keras model and save as image.',
-    action='store_true')
-parser.add_argument(
-    '-n',
-    '--not_fixed_input',
-    help='Set input layer\'s width and height to None.',
     action='store_true')
 
 def unique_config_sections(config_file):
@@ -80,12 +76,7 @@ def _main(args):
     cfg_parser.read_file(unique_config_file)
 
     print('Creating Keras model.')
-    if args.not_fixed_input:
-        input_layer = Input(shape=(None, None, 3))
-    else:
-        image_height = int(cfg_parser['net_0']['height'])
-        image_width = int(cfg_parser['net_0']['width'])
-        input_layer = Input(shape=(image_height, image_width, 3))
+    input_layer = Input(shape=(None, None, 3))
     prev_layer = input_layer
     all_layers = []
 
@@ -103,15 +94,13 @@ def _main(args):
             activation = cfg_parser[section]['activation']
             batch_normalize = 'batch_normalize' in cfg_parser[section]
 
-            # padding='same' is equivalent to Darknet pad=1
-            padding = 'same' if pad == 1 else 'valid'
+            padding = 'same' if pad == 1 and stride == 1 else 'valid'
 
             # Setting weights.
             # Darknet serializes convolutional weights as:
             # [bias/beta, [gamma, mean, variance], conv_weights]
             prev_layer_shape = K.int_shape(prev_layer)
 
-            # TODO: This assumes channel last dim_ordering.
             weights_shape = (size, size, prev_layer_shape[-1], filters)
             darknet_w_shape = (filters, weights_shape[2], size, size)
             weights_size = np.product(weights_shape)
@@ -132,8 +121,6 @@ def _main(args):
                     buffer=weights_file.read(filters * 12))
                 count += 3 * filters
 
-                # TODO: Keras BatchNormalization mistakenly refers to var
-                # as std.
                 bn_weight_list = [
                     bn_weights[0],  # scale gamma
                     conv_bias,  # shift beta
@@ -151,7 +138,6 @@ def _main(args):
             # (out_dim, in_dim, height, width)
             # We would like to set these to Tensorflow order:
             # (height, width, in_dim, out_dim)
-            # TODO: Add check for Theano dim ordering.
             conv_weights = np.transpose(conv_weights, [2, 3, 1, 0])
             conv_weights = [conv_weights] if batch_normalize else [
                 conv_weights, conv_bias
@@ -167,6 +153,9 @@ def _main(args):
                         activation, section))
 
             # Create Conv2D layer
+            if stride>1:
+                # Darknet uses left and top padding instead of 'same' mode
+                prev_layer = ZeroPadding2D(((1,0),(1,0)))(prev_layer)
             conv_layer = (Conv2D(
                 filters, (size, size),
                 strides=(stride, stride),
@@ -214,7 +203,6 @@ def _main(args):
             all_layers.append(UpSampling2D(stride)(prev_layer))
             prev_layer = all_layers[-1]
 
-        # TODO: Further implement needed.
         elif section.startswith('yolo'):
             out_index.append(len(all_layers)-1)
             all_layers.append(None)

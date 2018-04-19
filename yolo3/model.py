@@ -4,7 +4,7 @@ from functools import wraps
 
 import tensorflow as tf
 from keras import backend as K
-from keras.layers import Conv2D, Add, UpSampling2D, Concatenate
+from keras.layers import Conv2D, Add, ZeroPadding2D, UpSampling2D, Concatenate
 from keras.layers.advanced_activations import LeakyReLU
 from keras.layers.normalization import BatchNormalization
 from keras.models import Model
@@ -16,8 +16,8 @@ from yolo3.utils import compose
 @wraps(Conv2D)
 def DarknetConv2D(*args, **kwargs):
     """Wrapper to set Darknet parameters for Convolution2D."""
-    darknet_conv_kwargs = {'kernel_regularizer': l2(5e-4),
-                           'padding': 'same',}
+    darknet_conv_kwargs = {'kernel_regularizer': l2(5e-4)}
+    darknet_conv_kwargs['padding'] = 'valid' if kwargs['stride']==(2,2) else 'same'
     darknet_conv_kwargs.update(kwargs)
     return Conv2D(*args, **darknet_conv_kwargs)
 
@@ -32,6 +32,8 @@ def DarknetConv2D_BN_Leaky(*args, **kwargs):
 
 def resblock_body(x, num_filters, num_blocks):
     '''A series of resblocks starting with a downsampling Convolution2D'''
+    # Darknet uses left and top padding instead of 'same' mode
+    x = ZeroPadding2D(((1,0),(1,0)))(x)
     x = DarknetConv2D_BN_Leaky(num_filters, (3,3), strides=(2,2))(x)
     for i in range(num_blocks):
         y = compose(
@@ -90,21 +92,16 @@ def yolo_head(feats, anchors, num_classes, input_shape):
     # Reshape to batch, height, width, num_anchors, box_params.
     anchors_tensor = K.reshape(K.constant(anchors), [1, 1, 1, num_anchors, 2])
 
-    conv_dims = K.shape(feats)[1:3]
-    conv_height_index = K.arange(0, stop=conv_dims[1])
-    conv_width_index = K.arange(0, stop=conv_dims[0])
-    conv_height_index = K.tile(conv_height_index, [conv_dims[0]])
-
-    conv_width_index = K.tile(
-        K.expand_dims(conv_width_index, 0), [conv_dims[1], 1])
-    conv_width_index = K.flatten(K.transpose(conv_width_index))
-    conv_index = K.transpose(K.stack([conv_height_index, conv_width_index]))
-    conv_index = K.reshape(conv_index, [1, conv_dims[0], conv_dims[1], 1, 2])
-    conv_index = K.cast(conv_index, K.dtype(feats))
+    grid_shape = K.shape(feats)[1:3] # height, width
+    grid_y = K.tile(K.reshape(K.arange(0, stop=grid_shape[0]), [-1, 1, 1, 1]),
+        [1, grid_shape[1], 1, 1])
+    grid_x = K.tile(K.reshape(K.arange(0, stop=grid_shape[1]), [1, -1, 1, 1]),
+        [grid_shape[0], 1, 1, 1])
+    grid = K.concatenate([grid_x, grid_y])
+    grid = K.cast(grid, K.dtype(feats))
 
     feats = K.reshape(
-        feats, [-1, conv_dims[0], conv_dims[1], num_anchors, num_classes + 5])
-    conv_dims = K.cast(conv_dims[::-1], K.dtype(feats))
+        feats, [-1, grid_shape[0], grid_shape[1], num_anchors, num_classes + 5])
 
     box_xy = K.sigmoid(feats[..., :2])
     box_wh = K.exp(feats[..., 2:4])
@@ -112,10 +109,8 @@ def yolo_head(feats, anchors, num_classes, input_shape):
     box_class_probs = K.sigmoid(feats[..., 5:])
 
     # Adjust preditions to each spatial grid point and anchor size.
-    # Note: YOLO iterates over height index before width index.
-    # TODO: It works with +1, don't know why.
-    box_xy = (box_xy + conv_index + 1) / conv_dims
-    box_wh = box_wh * anchors_tensor / K.cast(input_shape[::-1], K.dtype(box_wh))
+    box_xy = (box_xy + grid) / K.cast(grid_shape[::-1], K.dtype(feats))
+    box_wh = box_wh * anchors_tensor / K.cast(input_shape[::-1], K.dtype(feats))
 
     return box_xy, box_wh, box_confidence, box_class_probs
 

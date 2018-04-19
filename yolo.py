@@ -28,6 +28,8 @@ class YOLO(object):
         self.class_names = self._get_class()
         self.anchors = self._get_anchors()
         self.sess = K.get_session()
+        self.model_image_size = (416, 416) # fixed size or (None, None)
+        self.is_fixed_size = self.model_image_size != (None, None)
         self.boxes, self.scores, self.classes = self.generate()
 
     def _get_class(self):
@@ -51,9 +53,6 @@ class YOLO(object):
 
         self.yolo_model = load_model(model_path)
         print('{} model, anchors, and classes loaded.'.format(model_path))
-
-        self.model_image_size = self.yolo_model.layers[0].input_shape[1:3]
-        self.is_fixed_size = self.model_image_size != (None, None)
 
         # Generate colors for drawing bounding boxes.
         hsv_tuples = [(x / len(self.class_names), 1., 1.)
