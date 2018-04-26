@@ -51,7 +51,7 @@ class YOLO(object):
         model_path = os.path.expanduser(self.model_path)
         assert model_path.endswith('.h5'), 'Keras model must be a .h5 file.'
 
-        self.yolo_model = load_model(model_path)
+        self.yolo_model = load_model(model_path, compile=False)
         print('{} model, anchors, and classes loaded.'.format(model_path))
 
         # Generate colors for drawing bounding boxes.
@@ -76,6 +76,8 @@ class YOLO(object):
         start = time.time()
 
         if self.is_fixed_size:
+            assert self.model_image_size[0]%32 == 0, 'Multiples of 32 required'
+            assert self.model_image_size[1]%32 == 0, 'Multiples of 32 required'
             boxed_image = letterbox_image(image, tuple(reversed(self.model_image_size)))
         else:
             new_image_size = (image.width - (image.width % 32),
