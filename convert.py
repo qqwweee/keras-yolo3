@@ -66,9 +66,13 @@ def _main(args):
     # Load weights and config.
     print('Loading weights.')
     weights_file = open(weights_path, 'rb')
-    weights_header = np.ndarray(
-        shape=(5, ), dtype='int32', buffer=weights_file.read(20))
-    print('Weights Header: ', weights_header)
+    major, minor, revision = np.ndarray(
+        shape=(3, ), dtype='int32', buffer=weights_file.read(12))
+    if (major*10+minor)>=2 and major<1000 and minor<1000:
+        seen = np.ndarray(shape=(1,), dtype='int64', buffer=weights_file.read(8))
+    else:
+        seen = np.ndarray(shape=(1,), dtype='int32', buffer=weights_file.read(4))
+    print('Weights Header: ', major, minor, revision, seen)
 
     print('Parsing Darknet config.')
     unique_config_file = unique_config_sections(config_path)

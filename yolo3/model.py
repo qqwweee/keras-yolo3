@@ -87,7 +87,7 @@ def yolo_body(inputs, num_anchors, num_classes):
     return Model(inputs, [y1,y2,y3])
 
 
-def yolo_head(feats, anchors, num_classes, input_shape, calc_loss=False):
+def yolo_head(feats, anchors, num_classes, input_shape):
     """Convert final layer features to bounding box parameters."""
     num_anchors = len(anchors)
     # Reshape to batch, height, width, num_anchors, box_params.
@@ -113,11 +113,7 @@ def yolo_head(feats, anchors, num_classes, input_shape, calc_loss=False):
     box_xy = (box_xy + grid) / K.cast(grid_shape[::-1], K.dtype(feats))
     box_wh = box_wh * anchors_tensor / K.cast(input_shape[::-1], K.dtype(feats))
 
-    if calc_loss==False:
-        return box_xy, box_wh, box_confidence, box_class_probs
-    else:
-        raw_box = K.concatenate([box_xy+grid, feats[..., 2:4]])
-        return raw_box, box_xy, box_wh, box_confidence, box_class_probs
+    return box_xy, box_wh, box_confidence, box_class_probs
 
 
 def yolo_correct_boxes(box_xy, box_wh, input_shape, image_shape):
@@ -339,27 +335,33 @@ def yolo_loss(args, anchors, num_classes, ignore_thresh=.5):
     for l in range(3):
         object_mask = y_true[l][..., 4:5]
         true_class_probs = y_true[l][..., 5:]
-        # Darknet box loss.
-        true_raw_xy = y_true[l][..., :2]*grid_shapes[l][::-1]
-        true_raw_wh = K.log(y_true[l][..., 2:4]*input_shape[::-1]/anchors[anchor_mask[l]])
-        # Avoid log(0)=-inf.
-        true_raw_wh = K.switch(object_mask, true_raw_wh, K.zeros_like(true_raw_wh))
-        true_raw_box = K.concatenate([true_raw_xy, true_raw_wh], axis=-1)
 
-        pred_raw_box, pred_xy, pred_wh, pred_confidence, pred_class_probs = yolo_head(yolo_outputs[l],
-             anchors[anchor_mask[l]], num_classes, input_shape, calc_loss=True)
+        pred_xy, pred_wh, pred_confidence, pred_class_probs = yolo_head(yolo_outputs[l],
+             anchors[anchor_mask[l]], num_classes, input_shape)
         pred_box = K.concatenate([pred_xy, pred_wh])
 
-        b = 0
-        ignore_mask = K.zeros_like(pred_box)[..., 0:1]
-        K.control_flow_ops.while_loop(lambda b, _: b<m,
-            lambda b, _: (b+1, K.cast(K.max(box_iou(pred_box[b],
-                tf.boolean_mask(y_true[l][b,...,0:4], object_mask[b,...,0])),
-                axis=-1) < ignore_thresh, K.dtype(ignore_mask))),
-           (b, ignore_mask[b,...,0]))
-        box_loss_scale = 2 - y_true[l][...,2:3]*y_true[l][...,3:4]
+        # Darknet box loss.
+        xy_delta = (y_true[l][..., :2]-pred_xy)*grid_shapes[l][::-1]
+        wh_delta = K.log(y_true[l][..., 2:4]) - K.log(pred_wh)
+        # Avoid log(0)=-inf.
+        wh_delta = K.switch(object_mask, wh_delta, K.zeros_like(wh_delta))
+        box_delta = K.concatenate([xy_delta, wh_delta], axis=-1)
+        box_delta_scale = 2 - y_true[l][...,2:3]*y_true[l][...,3:4]
 
-        box_loss = object_mask * K.square((true_raw_box-pred_raw_box)*box_loss_scale)
+        # Find ignore mask, iterate over each of batch.
+        ignore_mask = tf.TensorArray(K.dtype(y_true[0]), size=1, dynamic_size=True)
+        object_mask_bool = K.cast(object_mask, 'bool')
+        def loop_body(b, ignore_mask):
+            true_box = tf.boolean_mask(y_true[l][b,...,0:4], object_mask_bool[b,...,0])
+            iou = box_iou(pred_box[b], true_box)
+            best_iou = K.max(iou, axis=-1)
+            ignore_mask = ignore_mask.write(b, K.cast(best_iou<ignore_thresh, K.dtype(true_box)))
+            return b+1, ignore_mask
+        _, ignore_mask = K.control_flow_ops.while_loop(lambda b,*args: b<m, loop_body, [0, ignore_mask])
+        ignore_mask = ignore_mask.stack()
+        ignore_mask = K.expand_dims(ignore_mask, -1)
+
+        box_loss = object_mask * K.square(box_delta*box_delta_scale)
         confidence_loss = object_mask * K.square(1-pred_confidence) + \
             (1-object_mask) * K.square(0-pred_confidence) * ignore_mask
         class_loss = object_mask * K.square(true_class_probs-pred_class_probs)
