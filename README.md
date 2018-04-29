@@ -6,20 +6,38 @@
 
 A Keras implementation of YOLOv3 (Tensorflow backend) inspired by [allanzelener/YAD2K](https://github.com/allanzelener/YAD2K).
 
-Working On to Train...
-
 ---
 
 ## Quick Start
 
-- Download YOLOv3 weights from [YOLO website](http://pjreddie.com/darknet/yolo/).
-- Convert the Darknet YOLO model to a Keras model.
-- Run YOLO detection.
+1. Download YOLOv3 weights from [YOLO website](http://pjreddie.com/darknet/yolo/).
+2. Convert the Darknet YOLO model to a Keras model.
+3. Run YOLO detection.
 
 ```
 wget https://pjreddie.com/media/files/yolov3.weights
 python convert.py yolov3.cfg yolov3.weights model_data/yolo.h5
-python yolo.py
-or 
-python yolo_video.py
+python yolo.py   OR   python yolo_video.py
 ```
+
+---
+
+## Training
+
+1. Generate your own annotation file.
+
+  One row for one image;
+
+  Row format: image_file_path box1 box2 ... boxN;
+
+  Box format: x_min,y_min,x_max,y_max,class_id (no space).
+
+  For VOC dataset, try `python voc_annotation.py`
+
+2. Generate your own class names file.
+
+3. Modify train.py and start training.
+
+  `python train.py`
+
+  You will get the trained model model_data/my_yolo.h5.
