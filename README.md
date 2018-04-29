@@ -24,20 +24,12 @@ python yolo.py   OR   python yolo_video.py
 
 ## Training
 
-1. Generate your own annotation file.
+1. Generate your own annotation file and class names file.  
+    One row for one image;  
+    Row format: image_file_path box1 box2 ... boxN;  
+    Box format: x_min,y_min,x_max,y_max,class_id (no space).  
+    For VOC dataset, try `python voc_annotation.py`
 
-  One row for one image;
-
-  Row format: image_file_path box1 box2 ... boxN;
-
-  Box format: x_min,y_min,x_max,y_max,class_id (no space).
-
-  For VOC dataset, try `python voc_annotation.py`
-
-2. Generate your own class names file.
-
-3. Modify train.py and start training.
-
-  `python train.py`
-
-  You will get the trained model model_data/my_yolo.h5.
+2. Modify train.py and start training.  
+    `python train.py`  
+    You will get the trained model model_data/my_yolo.h5.
