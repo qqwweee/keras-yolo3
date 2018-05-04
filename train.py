@@ -112,8 +112,8 @@ def create_model(input_shape, anchors, num_classes, load_pretrained=True, freeze
         if not os.path.exists(weights_path):
             print("CREATING WEIGHTS FILE" + weights_path)
             yolo_path = os.path.join('model_data', 'yolo.h5')
-            model_body = load_model(yolo_path, compile=False)
-            model_body.save_weights(weights_path)
+            orig_model = load_model(yolo_path, compile=False)
+            orig_model.save_weights(weights_path)
         model_body.load_weights(weights_path, by_name=True, skip_mismatch=True)
         if freeze_body:
             # Do not freeze 3 output layers.
