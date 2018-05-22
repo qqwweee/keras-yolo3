@@ -13,7 +13,7 @@ from collections import defaultdict
 import numpy as np
 from keras import backend as K
 from keras.layers import (Conv2D, Input, ZeroPadding2D, Add,
-                          UpSampling2D, Concatenate)
+                          UpSampling2D,MaxPooling2D, Concatenate)
 from keras.layers.advanced_activations import LeakyReLU
 from keras.layers.normalization import BatchNormalization
 from keras.models import Model
@@ -193,6 +193,19 @@ def _main(args):
                 skip_layer = layers[0]  # only one layer to route
                 all_layers.append(skip_layer)
                 prev_layer = skip_layer
+
+        #Our changes for tiny-YOLO conversion
+        elif section.startswith('maxpool'):
+            size = int(cfg_parser[section]['size'])
+            stride = int(cfg_parser[section]['stride'])
+            all_layers.append(
+                MaxPooling2D(
+                    pool_size=(size, size),
+                    strides=(stride, stride),
+                    border_mode='same')(prev_layer))
+            prev_layer = all_layers[-1]
+
+       #End of our chanegs
 
         elif section.startswith('shortcut'):
             index = int(cfg_parser[section]['from'])
