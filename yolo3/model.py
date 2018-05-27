@@ -136,17 +136,14 @@ def yolo_head(feats, anchors, num_classes, input_shape, calc_loss=False):
     feats = K.reshape(
         feats, [-1, grid_shape[0], grid_shape[1], num_anchors, num_classes + 5])
 
-    raw_box_xy = K.sigmoid(feats[..., :2])
-    raw_box_wh = feats[..., 2:4]
-
     # Adjust preditions to each spatial grid point and anchor size.
-    box_xy = (raw_box_xy + grid) / K.cast(grid_shape[::-1], K.dtype(feats))
-    box_wh = K.exp(raw_box_wh) * anchors_tensor / K.cast(input_shape[::-1], K.dtype(feats))
+    box_xy = (K.sigmoid(feats[..., :2]) + grid) / K.cast(grid_shape[::-1], K.dtype(feats))
+    box_wh = K.exp(feats[..., 2:4]) * anchors_tensor / K.cast(input_shape[::-1], K.dtype(feats))
     box_confidence = K.sigmoid(feats[..., 4:5])
     box_class_probs = K.sigmoid(feats[..., 5:])
 
     if calc_loss == True:
-        return grid, raw_box_xy, raw_box_wh, box_xy, box_wh, box_confidence, box_class_probs
+        return grid, feats, box_xy, box_wh
     return box_xy, box_wh, box_confidence, box_class_probs
 
 
@@ -373,7 +370,7 @@ def yolo_loss(args, anchors, num_classes, ignore_thresh=.5, print_loss=False):
         object_mask = y_true[l][..., 4:5]
         true_class_probs = y_true[l][..., 5:]
 
-        grid, raw_pred_xy, raw_pred_wh, pred_xy, pred_wh, pred_confidence, pred_class_probs = yolo_head(yolo_outputs[l],
+        grid, raw_pred, pred_xy, pred_wh = yolo_head(yolo_outputs[l],
              anchors[anchor_mask[l]], num_classes, input_shape, calc_loss=True)
         pred_box = K.concatenate([pred_xy, pred_wh])
 
@@ -396,11 +393,12 @@ def yolo_loss(args, anchors, num_classes, ignore_thresh=.5, print_loss=False):
         ignore_mask = ignore_mask.stack()
         ignore_mask = K.expand_dims(ignore_mask, -1)
 
-        xy_loss = object_mask * box_loss_scale * K.binary_crossentropy(raw_true_xy, raw_pred_xy)
-        wh_loss = object_mask * box_loss_scale * 0.5 * K.square(raw_true_wh-raw_pred_wh)
-        confidence_loss = object_mask * (-K.log(pred_confidence))+ \
-            (1-object_mask) * (-K.log(1-pred_confidence)) * ignore_mask # binary_crossentropy after simplification
-        class_loss = object_mask * K.binary_crossentropy(true_class_probs, pred_class_probs)
+        # K.binary_crossentropy is helpful to avoid exp overflow.
+        xy_loss = object_mask * box_loss_scale * K.binary_crossentropy(raw_true_xy, raw_pred[...,0:2], from_logits=True)
+        wh_loss = object_mask * box_loss_scale * 0.5 * K.square(raw_true_wh-raw_pred[...,2:4])
+        confidence_loss = object_mask * K.binary_crossentropy(object_mask, raw_pred[...,4:5], from_logits=True)+ \
+            (1-object_mask) * K.binary_crossentropy(object_mask, raw_pred[...,4:5], from_logits=True) * ignore_mask
+        class_loss = object_mask * K.binary_crossentropy(true_class_probs, raw_pred[...,5:], from_logits=True)
 
         xy_loss = K.sum(xy_loss) / mf
         wh_loss = K.sum(wh_loss) / mf
