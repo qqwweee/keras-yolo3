@@ -30,6 +30,11 @@ parser.add_argument(
     '--plot_model',
     help='Plot generated Keras model and save as image.',
     action='store_true')
+parser.add_argument(
+    '-w',
+    '--weights_only',
+    help='Save as Keras weights file instead of model file.',
+    action='store_true')
 
 def unique_config_sections(config_file):
     """Convert all config sections to have unique names.
@@ -230,10 +235,16 @@ def _main(args):
                 'Unsupported section header type: {}'.format(section))
 
     # Create and save model.
+    if len(out_index)==0: out_index.append(len(all_layers)-1)
     model = Model(inputs=input_layer, outputs=[all_layers[i] for i in out_index])
     print(model.summary())
-    model.save('{}'.format(output_path))
-    print('Saved Keras model to {}'.format(output_path))
+    if args.weights_only:
+        model.save_weights('{}'.format(output_path))
+        print('Saved Keras weights to {}'.format(output_path))
+    else:
+        model.save('{}'.format(output_path))
+        print('Saved Keras model to {}'.format(output_path))
+
     # Check to see if all weights have been read.
     remaining_weights = len(weights_file.read()) / 4
     weights_file.close()

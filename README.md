@@ -20,7 +20,7 @@ python convert.py yolov3.cfg yolov3.weights model_data/yolo.h5
 python yolo.py   OR   python yolo_video.py
 ```
 
-For Tiny YOLOv3, just do in the similar way. And modify model path and anchor path in `yolo.py`.
+For Tiny YOLOv3, just do in a similar way. And modify model path and anchor path in `yolo.py`.
 
 ---
 
@@ -33,13 +33,19 @@ For Tiny YOLOv3, just do in the similar way. And modify model path and anchor pa
     For VOC dataset, try `python voc_annotation.py`
 
 2. Make sure you have run `python convert.py yolov3.cfg yolov3.weights model_data/yolo.h5`  
-    A file model_data/yolo_weights.h5 will be generated when you run train.py for the first time.  
+    A file `model_data/yolo_weights.h5` will be generated when you run `train.py` for the first time.  
     The file is used to load pretrained weights.
 
 3. Modify train.py and start training.  
     `python train.py`  
     Use your trained weights or checkpoint weights in `yolo.py`.  
     Remember to modify class path or anchor path.
+
+If you want to use original pretrained weights for YOLOv3:  
+    1. `wget https://pjreddie.com/media/files/darknet53.conv.74`  
+    2. rename it as `darknet53.weights`  
+    3. `python convert.py -w darknet53.cfg darknet53.weights model_data/darknet53_weights.h5`  
+    4. use `model_data/darknet53_weights.h5` in `train.py`
 
 ---
 
