@@ -1,12 +1,11 @@
 """
 Retrain the YOLO model for your own dataset.
 """
-import os
 
 import numpy as np
 import keras.backend as K
 from keras.layers import Input, Lambda
-from keras.models import load_model, Model
+from keras.models import Model
 from keras.callbacks import TensorBoard, ModelCheckpoint, EarlyStopping
 
 from yolo3.model import preprocess_true_boxes, yolo_body, tiny_yolo_body, yolo_loss
@@ -24,9 +23,12 @@ def _main():
     input_shape = (416,416) # multiple of 32, hw
 
     is_tiny_version = len(anchors)==6 # default setting
-    create_func = create_tiny_model if is_tiny_version else create_model
-    model = create_func(input_shape, anchors, len(class_names),
-        load_pretrained=True, freeze_body=True)
+    if is_tiny_version:
+        model = create_tiny_model(input_shape, anchors, len(class_names),
+            load_pretrained=True, freeze_body=True, weights_path='model_data/tiny_yolo_weights.h5')
+    else:
+        model = create_model(input_shape, anchors, len(class_names),
+            load_pretrained=True, freeze_body=True, weights_path='model_data/yolo_weights.h5')
 
     train(model, annotation_path, input_shape, anchors, len(class_names), log_dir=log_dir)
 
@@ -38,7 +40,7 @@ def train(model, annotation_path, input_shape, anchors, num_classes, log_dir='lo
 
     logging = TensorBoard(log_dir=log_dir)
     checkpoint = ModelCheckpoint(log_dir + "ep{epoch:03d}-loss{loss:.3f}-val_loss{val_loss:.3f}.h5",
-        monitor='val_loss', save_weights_only=True, save_best_only=True)
+        monitor='val_loss', save_weights_only=True, save_best_only=True, period=1)
     early_stopping = EarlyStopping(monitor='val_loss', min_delta=0, patience=5, verbose=1, mode='auto')
 
     batch_size = 32
@@ -48,6 +50,7 @@ def train(model, annotation_path, input_shape, anchors, num_classes, log_dir='lo
     np.random.shuffle(lines)
     num_val = int(len(lines)*val_split)
     num_train = len(lines) - num_val
+    print('Train on {} samples, val on {} samples, with batch size {}.'.format(num_train, num_val, batch_size))
 
     model.fit_generator(data_generator_wrap(lines[:num_train], batch_size, input_shape, anchors, num_classes),
             steps_per_epoch=max(1, num_train//batch_size),
@@ -75,8 +78,10 @@ def get_anchors(anchors_path):
     return np.array(anchors).reshape(-1, 2)
 
 
-def create_model(input_shape, anchors, num_classes, load_pretrained=True, freeze_body=True):
+def create_model(input_shape, anchors, num_classes, load_pretrained=True, freeze_body=True,
+            weights_path='model_data/yolo_weights.h5'):
     '''create the training model'''
+    K.clear_session() # get a new session
     image_input = Input(shape=(None, None, 3))
     h, w = input_shape
     num_anchors = len(anchors)
@@ -85,19 +90,16 @@ def create_model(input_shape, anchors, num_classes, load_pretrained=True, freeze
         num_anchors//3, num_classes+5)) for l in range(3)]
 
     model_body = yolo_body(image_input, num_anchors//3, num_classes)
+    print('Create YOLOv3 model with {} anchors and {} classes.'.format(num_anchors, num_classes))
 
     if load_pretrained:
-        weights_path = os.path.join('model_data', 'yolo_weights.h5')
-        if not os.path.exists(weights_path):
-            print("CREATING WEIGHTS FILE" + weights_path)
-            yolo_path = os.path.join('model_data', 'yolo.h5')
-            orig_model = load_model(yolo_path, compile=False)
-            orig_model.save_weights(weights_path)
         model_body.load_weights(weights_path, by_name=True, skip_mismatch=True)
+        print('Load weights {}.'.format(weights_path))
         if freeze_body:
             # Do not freeze 3 output layers.
-            for i in range(len(model_body.layers)-3):
-                model_body.layers[i].trainable = False
+            num = len(model_body.layers)-3
+            for i in range(num): model_body.layers[i].trainable = False
+            print('Freeze the first {} layers of total {} layers.'.format(num, len(model_body.layers)))
 
     model_loss = Lambda(yolo_loss, output_shape=(1,), name='yolo_loss',
         arguments={'anchors': anchors, 'num_classes': num_classes, 'ignore_thresh': 0.5})(
@@ -106,8 +108,10 @@ def create_model(input_shape, anchors, num_classes, load_pretrained=True, freeze
 
     return model
 
-def create_tiny_model(input_shape, anchors, num_classes, load_pretrained=True, freeze_body=True):
+def create_tiny_model(input_shape, anchors, num_classes, load_pretrained=True, freeze_body=True,
+            weights_path='model_data/tiny_yolo_weights.h5'):
     '''create the training model, for Tiny YOLOv3'''
+    K.clear_session() # get a new session
     image_input = Input(shape=(None, None, 3))
     h, w = input_shape
     num_anchors = len(anchors)
@@ -116,19 +120,16 @@ def create_tiny_model(input_shape, anchors, num_classes, load_pretrained=True, f
         num_anchors//2, num_classes+5)) for l in range(2)]
 
     model_body = tiny_yolo_body(image_input, num_anchors//2, num_classes)
+    print('Create Tiny YOLOv3 model with {} anchors and {} classes.'.format(num_anchors, num_classes))
 
     if load_pretrained:
-        weights_path = os.path.join('model_data/', 'tiny_yolo_weights.h5')
-        if not os.path.exists(weights_path):
-            print("CREATING WEIGHTS FILE" + weights_path)
-            yolo_path = os.path.join('model_data', 'tiny_yolo.h5')
-            orig_model = load_model(yolo_path, compile=False)
-            orig_model.save_weights(weights_path)
         model_body.load_weights(weights_path, by_name=True, skip_mismatch=True)
+        print('Load weights {}.'.format(weights_path))
         if freeze_body:
             # Do not freeze 2 output layers.
-            for i in range(len(model_body.layers)-2):
-                model_body.layers[i].trainable = False
+            num = len(model_body.layers)-2
+            for i in range(num): model_body.layers[i].trainable = False
+            print('Freeze the first {} layers of total {} layers.'.format(num, len(model_body.layers)))
 
     model_loss = Lambda(yolo_loss, output_shape=(1,), name='yolo_loss',
         arguments={'anchors': anchors, 'num_classes': num_classes, 'ignore_thresh': 0.7})(
@@ -147,7 +148,7 @@ def data_generator(annotation_lines, batch_size, input_shape, anchors, num_class
         box_data = []
         for b in range(batch_size):
             i %= n
-            image, box = get_random_data(annotation_lines[i], input_shape)
+            image, box = get_random_data(annotation_lines[i], input_shape, random=True)
             image_data.append(image)
             box_data.append(box)
             i += 1
