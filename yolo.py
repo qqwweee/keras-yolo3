@@ -6,7 +6,6 @@ Run a YOLO_v3 style detection model on test images.
 
 import colorsys
 import os
-import random
 from timeit import default_timer as timer
 
 import numpy as np
@@ -24,7 +23,7 @@ class YOLO(object):
         self.anchors_path = 'model_data/yolo_anchors.txt'
         self.classes_path = 'model_data/coco_classes.txt'
         self.score = 0.3
-        self.iou = 0.5
+        self.iou = 0.45
         self.class_names = self._get_class()
         self.anchors = self._get_anchors()
         self.sess = K.get_session()
@@ -73,9 +72,9 @@ class YOLO(object):
         self.colors = list(
             map(lambda x: (int(x[0] * 255), int(x[1] * 255), int(x[2] * 255)),
                 self.colors))
-        random.seed(10101)  # Fixed seed for consistent colors across runs.
-        random.shuffle(self.colors)  # Shuffle colors to decorrelate adjacent classes.
-        random.seed(None)  # Reset seed to default.
+        np.random.seed(10101)  # Fixed seed for consistent colors across runs.
+        np.random.shuffle(self.colors)  # Shuffle colors to decorrelate adjacent classes.
+        np.random.seed(None)  # Reset seed to default.
 
         # Generate output tensor targets for filtered bounding boxes.
         self.input_image_shape = K.placeholder(shape=(2, ))

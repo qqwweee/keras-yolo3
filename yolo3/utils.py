@@ -35,7 +35,7 @@ def rand(a=0, b=1):
 
 def get_random_data(annotation_line, input_shape, random=True, max_boxes=20, jitter=.3, hue=.1, sat=1.5, val=1.5):
     '''random preprocessing for real-time data augmentation'''
-    line = annotation_line.split(' ')
+    line = annotation_line.split()
     image = Image.open(line[0])
     iw, ih = image.size
     h, w = input_shape
@@ -54,12 +54,13 @@ def get_random_data(annotation_line, input_shape, random=True, max_boxes=20, jit
         image_data = np.array(new_image)/255.
 
         # correct boxes
-        np.random.shuffle(box)
-        if len(box)>max_boxes: box = box[:max_boxes]
-        box[:, [0,2]] = box[:, [0,2]]*scale + dx
-        box[:, [1,3]] = box[:, [1,3]]*scale + dy
         box_data = np.zeros((max_boxes,5))
-        box_data[:len(box)] = box
+        if len(box)>0:
+            np.random.shuffle(box)
+            if len(box)>max_boxes: box = box[:max_boxes]
+            box[:, [0,2]] = box[:, [0,2]]*scale + dx
+            box[:, [1,3]] = box[:, [1,3]]*scale + dy
+            box_data[:len(box)] = box
 
         return image_data, box_data
 
@@ -100,18 +101,19 @@ def get_random_data(annotation_line, input_shape, random=True, max_boxes=20, jit
     image_data = hsv_to_rgb(x) # numpy array, 0 to 1
 
     # correct boxes
-    np.random.shuffle(box)
-    box[:, [0,2]] = box[:, [0,2]]*nw/iw + dx
-    box[:, [1,3]] = box[:, [1,3]]*nh/ih + dy
-    if flip: box[:, [0,2]] = w - box[:, [2,0]]
-    box[:, 0:2][box[:, 0:2]<0] = 0
-    box[:, 2][box[:, 2]>w] = w
-    box[:, 3][box[:, 3]>h] = h
-    box_w = box[:, 2] - box[:, 0]
-    box_h = box[:, 3] - box[:, 1]
-    box = box[np.logical_and(box_w>1, box_h>1)] # discard invalid box
-    if len(box)>max_boxes: box = box[:max_boxes]
     box_data = np.zeros((max_boxes,5))
-    box_data[:len(box)] = box
+    if len(box)>0:
+        np.random.shuffle(box)
+        box[:, [0,2]] = box[:, [0,2]]*nw/iw + dx
+        box[:, [1,3]] = box[:, [1,3]]*nh/ih + dy
+        if flip: box[:, [0,2]] = w - box[:, [2,0]]
+        box[:, 0:2][box[:, 0:2]<0] = 0
+        box[:, 2][box[:, 2]>w] = w
+        box[:, 3][box[:, 3]>h] = h
+        box_w = box[:, 2] - box[:, 0]
+        box_h = box[:, 3] - box[:, 1]
+        box = box[np.logical_and(box_w>1, box_h>1)] # discard invalid box
+        if len(box)>max_boxes: box = box[:max_boxes]
+        box_data[:len(box)] = box
 
     return image_data, box_data

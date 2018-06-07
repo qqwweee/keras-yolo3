@@ -245,6 +245,7 @@ def preprocess_true_boxes(true_boxes, input_shape, anchors, num_classes):
     y_true: list of array, shape like yolo_outputs, xywh are reletive value
 
     '''
+    assert (true_boxes[..., 4]<num_classes).all(), 'class id must be less than num_classes'
     num_layers = len(anchors)//3 # default setting
     anchor_mask = [[6,7,8], [3,4,5], [0,1,2]] if num_layers==3 else [[3,4,5], [1,2,3]]
 
@@ -269,6 +270,7 @@ def preprocess_true_boxes(true_boxes, input_shape, anchors, num_classes):
     for b in range(m):
         # Discard zero rows.
         wh = boxes_wh[b, valid_mask[b]]
+        if len(wh)==0: continue
         # Expand dim to apply broadcasting.
         wh = np.expand_dims(wh, -2)
         box_maxes = wh / 2.
