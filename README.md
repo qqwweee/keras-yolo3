@@ -6,6 +6,9 @@
 
 A Keras implementation of YOLOv3 (Tensorflow backend) inspired by [allanzelener/YAD2K](https://github.com/allanzelener/YAD2K).
 
+
+This fork adds the train_bottleneck.py file for pre training only the last layers by using bottleneck features to speed up training drastically. See [this](https://blog.keras.io/building-powerful-image-classification-models-using-very-little-data.html) for more information on bottleneck features.
+
 ---
 
 ## Quick Start
