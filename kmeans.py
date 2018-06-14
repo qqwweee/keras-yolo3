@@ -1,120 +1,101 @@
 import numpy as np
-import json
-import xml.etree.ElementTree as ET
-
-classes = ["aeroplane", "bicycle", "bird", "boat", "bottle", "bus", "car", "cat", "chair", "cow", "diningtable", "dog",
-           "horse", "motorbike", "person", "pottedplant", "sheep", "sofa", "train", "tvmonitor"]
 
 
-def iou(box, clusters):  # 1 box -> k clusters
-    weight = np.minimum(clusters[:, 0], box[0])
-    height = np.minimum(clusters[:, 1], box[1])
-    if np.count_nonzero(weight == 0) > 0 or np.count_nonzero(height == 0) > 0:
-        raise ValueError("Invalid box(h=0 or w=0)")
-    intersection = weight * height
-    box_area = box[0] * box[1]
-    cluster_area = clusters[:, 0] * clusters[:, 1]
-    iou_ = intersection / (box_area + cluster_area - intersection)
-    return iou_
+class YOLO_Kmeans:
 
+    def __init__(self, cluster_number, filename):
+        self.cluster_number = 9
+        self.filename = "2012_train.txt"
 
-def avg_iou(boxes, clusters):
-    return np.mean([np.max(iou(boxes[i], clusters)) for i in range(boxes.shape[0])])
+    def iou(self, boxes, clusters):  # 1 box -> k clusters
+        n = boxes.shape[0]
+        k = cluster_number
 
+        box_area = boxes[:, 0] * boxes[:, 1]
+        box_area = box_area.repeat(k)
+        box_area = np.reshape(box_area, (n, k))
 
-def kmeans(boxes, k, dist=np.median):
-    box_number = boxes.shape[0]
-    distances = np.empty((box_number, k))
-    last_nearest = np.zeros((box_number,))
-    np.random.seed()
-    clusters = boxes[np.random.choice(
-        box_number, k, replace=False)]  # init k clusters
-    while True:
-        for row in range(box_number):
-            distances[row] = 1 - iou(boxes[row], clusters)
+        cluster_area = clusters[:, 0] * clusters[:, 1]
+        cluster_area = np.tile(cluster_area, [1, n])
+        cluster_area = np.reshape(cluster_area, (n, k))
 
-        current_nearest = np.argmin(distances, axis=1)
-        if (last_nearest == current_nearest).all():
-            break  # clusters won't change
-        for cluster in range(k):
-            clusters[cluster] = dist(  # update clusters
-                boxes[current_nearest == cluster], axis=0)
+        box_w_matrix = np.reshape(boxes[:, 0].repeat(k), (n, k))
+        cluster_w_matrix = np.reshape(np.tile(clusters[:, 0], (1, n)), (n, k))
+        min_w_matrix = np.minimum(cluster_w_matrix, box_w_matrix)
 
-        last_nearest = current_nearest
+        box_h_matrix = np.reshape(boxes[:, 1].repeat(k), (n, k))
+        cluster_h_matrix = np.reshape(np.tile(clusters[:, 1], (1, n)), (n, k))
+        min_h_matrix = np.minimum(cluster_h_matrix, box_h_matrix)
+        inter_area = np.multiply(min_w_matrix, min_h_matrix)
 
-    return clusters
+        result = inter_area / (box_area + cluster_area - inter_area)
+        return result
 
+    def avg_iou(self, boxes, clusters):
+        accuracy = np.mean([np.max(self.iou(boxes, clusters), axis=1)])
+        return accuracy
 
-def coco_boxes(k):
-    dataSet = []
-    f = open(
-        "mscoco2017/annotations/instances_train2017.json",
-        encoding='utf-8')
-    data = json.load(f)
-    annotations = data['annotations']
+    def kmeans(self, boxes, k, dist=np.median):
+        box_number = boxes.shape[0]
+        distances = np.empty((box_number, k))
+        last_nearest = np.zeros((box_number,))
+        np.random.seed()
+        clusters = boxes[np.random.choice(
+            box_number, k, replace=False)]  # init k clusters
+        while True:
 
-    for ant in annotations:
-        box_info = ant['bbox']
-        width = box_info[2]
-        height = box_info[3]
-        if width != 0 and height != 0:
-            dataSet.append([width, height])
-    dataSet = np.array(dataSet)
+            distances = 1 - self.iou(boxes, clusters)
 
-    return dataSet
+            current_nearest = np.argmin(distances, axis=1)
+            if (last_nearest == current_nearest).all():
+                break  # clusters won't change
+            for cluster in range(k):
+                clusters[cluster] = dist(  # update clusters
+                    boxes[current_nearest == cluster], axis=0)
 
+            last_nearest = current_nearest
 
-def voc_boxes(k):
-    dataSet = []
-    image_ids = open(
-        'VOCdevkit/VOC2012/ImageSets/Main/train.txt').read().strip().split()
-    for image_id in image_ids:
-        in_file = open('VOCdevkit/VOC2012/Annotations/%s.xml' % (image_id))
-        tree = ET.parse(in_file)
-        root = tree.getroot()
+        return clusters
 
-        for obj in root.iter('object'):
-            difficult = obj.find('difficult').text
-            cls = obj.find('name').text
-            if cls not in classes or int(difficult) == 1:
-                continue
-            cls_id = classes.index(cls)
-            xmlbox = obj.find('bndbox')
-            width = int(xmlbox.find('xmax').text) - \
-                int(xmlbox.find('xmin').text)
-            height = int(xmlbox.find('ymax').text) - \
-                int(xmlbox.find('ymin').text)
-            dataSet.append([width, height])
+    def result2txt(self, data):
+        f = open("yolo_anchors.txt", 'w')
+        row = np.shape(data)[0]
+        for i in range(row):
+            if i == 0:
+                x_y = "%d,%d" % (data[i][0], data[i][1])
+            else:
+                x_y = ", %d,%d" % (data[i][0], data[i][1])
+            f.write(x_y)
+        f.close()
 
-    dataSet = np.array(dataSet)
-    return dataSet
+    def txt2boxes(self):
+        f = open(self.filename, 'r')
+        dataSet = []
+        for line in f:
+            infos = line.split(" ")
+            length = len(infos)
+            for i in range(1, length):
+                width = int(infos[i].split(",")[2]) - \
+                    int(infos[i].split(",")[0])
+                height = int(infos[i].split(",")[3]) - \
+                    int(infos[i].split(",")[1])
+                dataSet.append([width, height])
+        result = np.array(dataSet)
+        f.close()
+        return result
 
-
-def result2txt(data):
-    f = open("yolo_anchors.txt", 'w')
-    row = np.shape(data)[0]
-    for i in range(row):
-        if i == 0:
-            x_y = "%d,%d" % (data[i][0], data[i][1])
-        else:
-            x_y = ", %d,%d" % (data[i][0], data[i][1])
-        f.write(x_y)
-    f.close()
+    def txt2clusters(self):
+        all_boxes = self.txt2boxes()
+        result = self.kmeans(all_boxes, k=self.cluster_number)
+        result = result[np.lexsort(result.T[0, None])]
+        self.result2txt(result)
+        print("K anchors:\n {}".format(result))
+        print("Accuracy: {:.2f}%".format(
+            self.avg_iou(all_boxes, result) * 100))
 
 
 if __name__ == "__main__":
-
     cluster_number = 9
-    name = "voc"  # coco
-
-    if name == "coco":
-        dataSet = coco_boxes(cluster_number)
-
-    elif name == "voc":
-        dataSet = voc_boxes(cluster_number)
-
-    result = kmeans(dataSet, k=cluster_number)
-    result = result[np.lexsort(result.T[0, None])]
-    result2txt(result)
-    print("K anchors:\n {}".format(result))
-    print("Accuracy: {:.2f}%".format(avg_iou(dataSet, result) * 100))
+    filename = "2012_train.txt"
+    kmeans = YOLO_Kmeans(cluster_number, filename)
+    kmeans.txt2clusters()
