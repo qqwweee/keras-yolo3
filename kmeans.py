@@ -1,6 +1,9 @@
 import numpy as np
 import json
-from collections import defaultdict
+import xml.etree.ElementTree as ET
+
+classes = ["aeroplane", "bicycle", "bird", "boat", "bottle", "bus", "car", "cat", "chair", "cow", "diningtable", "dog",
+           "horse", "motorbike", "person", "pottedplant", "sheep", "sofa", "train", "tvmonitor"]
 
 
 def iou(box, clusters):  # 1 box -> k clusters
@@ -42,11 +45,8 @@ def kmeans(boxes, k, dist=np.median):
     return clusters
 
 
-if __name__ == "__main__":
-    cluster_number = 9
+def coco_boxes(k):
     dataSet = []
-    name_box_id = defaultdict(list)
-    id_name = dict()
     f = open(
         "mscoco2017/annotations/instances_train2017.json",
         encoding='utf-8')
@@ -57,9 +57,64 @@ if __name__ == "__main__":
         box_info = ant['bbox']
         width = box_info[2]
         height = box_info[3]
-        dataSet.append([width, height])
+        if width != 0 and height != 0:
+            dataSet.append([width, height])
     dataSet = np.array(dataSet)
 
-    out = kmeans(dataSet, k=cluster_number)
-    print("K anchors:\n {}".format(out))
-    print("Accuracy: {:.2f}%".format(avg_iou(dataSet, out) * 100))
+    return dataSet
+
+
+def voc_boxes(k):
+    dataSet = []
+    image_ids = open(
+        'VOCdevkit/VOC2012/ImageSets/Main/train.txt').read().strip().split()
+    for image_id in image_ids:
+        in_file = open('VOCdevkit/VOC2012/Annotations/%s.xml' % (image_id))
+        tree = ET.parse(in_file)
+        root = tree.getroot()
+
+        for obj in root.iter('object'):
+            difficult = obj.find('difficult').text
+            cls = obj.find('name').text
+            if cls not in classes or int(difficult) == 1:
+                continue
+            cls_id = classes.index(cls)
+            xmlbox = obj.find('bndbox')
+            width = int(xmlbox.find('xmax').text) - \
+                int(xmlbox.find('xmin').text)
+            height = int(xmlbox.find('ymax').text) - \
+                int(xmlbox.find('ymin').text)
+            dataSet.append([width, height])
+
+    dataSet = np.array(dataSet)
+    return dataSet
+
+
+def result2txt(data):
+    f = open("yolo_anchors.txt", 'w')
+    row = np.shape(data)[0]
+    for i in range(row):
+        if i == 0:
+            x_y = "%d,%d" % (data[i][0], data[i][1])
+        else:
+            x_y = ", %d,%d" % (data[i][0], data[i][1])
+        f.write(x_y)
+    f.close()
+
+
+if __name__ == "__main__":
+
+    cluster_number = 9
+    name = "voc"  # coco
+
+    if name == "coco":
+        dataSet = coco_boxes(cluster_number)
+
+    elif name == "voc":
+        dataSet = voc_boxes(cluster_number)
+
+    result = kmeans(dataSet, k=cluster_number)
+    result = result[np.lexsort(result.T[0, None])]
+    result2txt(result)
+    print("K anchors:\n {}".format(result))
+    print("Accuracy: {:.2f}%".format(avg_iou(dataSet, result) * 100))
