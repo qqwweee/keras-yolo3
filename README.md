@@ -25,6 +25,8 @@ For Tiny YOLOv3, just do in a similar way. And modify model path and anchor path
 
 ---
 
+4. MultiGPU usage is an optinal. Change the number of gpu and add gpu device id
+
 ## Training
 
 1. Generate your own annotation file and class names file.  
