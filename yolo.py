@@ -17,21 +17,23 @@ from PIL import Image, ImageFont, ImageDraw
 from yolo3.model import yolo_eval, yolo_body, tiny_yolo_body
 from yolo3.utils import letterbox_image
 import os
-os.environ['CUDA_VISIBLE_DEVICES'] = '0'
 from keras.utils import multi_gpu_model
-gpu_num=1
+
+import argparse
+FLAGS = None
 
 class YOLO(object):
     def __init__(self):
-        self.model_path = 'model_data/yolo.h5' # model path or trained weights path
-        self.anchors_path = 'model_data/yolo_anchors.txt'
-        self.classes_path = 'model_data/coco_classes.txt'
+        self.model_path = FLAGS.model # model path or trained weights path
+        self.anchors_path = FLAGS.anchors
+        self.classes_path = FLAGS.classes
         self.score = 0.3
         self.iou = 0.45
         self.class_names = self._get_class()
         self.anchors = self._get_anchors()
         self.sess = K.get_session()
         self.model_image_size = (416, 416) # fixed size or (None, None), hw
+        self.gpu_num = FLAGS.gpu_num
         self.boxes, self.scores, self.classes = self.generate()
 
     def _get_class(self):
@@ -82,8 +84,8 @@ class YOLO(object):
 
         # Generate output tensor targets for filtered bounding boxes.
         self.input_image_shape = K.placeholder(shape=(2, ))
-        if gpu_num>=2:
-            self.yolo_model = multi_gpu_model(self.yolo_model, gpus=gpu_num)
+        if self.gpu_num>=2:
+            self.yolo_model = multi_gpu_model(self.yolo_model, gpus=self.gpu_num)
         boxes, scores, classes = yolo_eval(self.yolo_model.output, self.anchors,
                 len(self.class_names), self.input_image_shape,
                 score_threshold=self.score, iou_threshold=self.iou)
@@ -218,4 +220,36 @@ def detect_img(yolo):
 
 
 if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+
+    parser.add_argument(
+      '--model',
+      type=str,
+      default='model_data/yolo.h5',
+      help='path to model weight file, default model_data/yolo.h5'
+    )
+
+    parser.add_argument(
+      '--anchors',
+      type=str,
+      default='model_data/yolo_anchors.txt',
+      help='path to anchor definitions, default model_data/yolo_anchors.txt'
+    )
+
+    parser.add_argument(
+      '--classes',
+      type=str,
+      default='model_data/coco_classes.txt',
+      help='path to class definitions, default model_data/coco_classes.txt'
+    )
+
+    parser.add_argument(
+      '--gpu_num',
+      type=int,
+      default=1,
+      help='Number of GPU to use, default 1'
+    )
+
+    FLAGS, unparsed = parser.parse_known_args()
+
     detect_img(YOLO())
