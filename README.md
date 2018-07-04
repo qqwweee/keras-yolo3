@@ -21,11 +21,11 @@ python convert.py yolov3.cfg yolov3.weights model_data/yolo.h5
 python yolo.py   OR   python yolo_video.py [video_path] [output_path(optional)]
 ```
 
-For Tiny YOLOv3, just do in a similar way. And modify model path and anchor path in yolo.py.
+For Tiny YOLOv3, just do in a similar way, just specify model path and anchor path by calling yolo.py with `--model model_file` and `--anchors anchor_file`.
 
 ---
 
-4. MultiGPU usage is an optinal. Change the number of gpu and add gpu device id
+4. MultiGPU usage: use `--gpu_num N` to use N GPUs. It is passed to the [Keras multi_gpu_model()](https://keras.io/utils/#multi_gpu_model).
 
 ## Training
 
@@ -46,8 +46,8 @@ For Tiny YOLOv3, just do in a similar way. And modify model path and anchor path
 
 3. Modify train.py and start training.  
     `python train.py`  
-    Use your trained weights or checkpoint weights in yolo.py.  
-    Remember to modify class path or anchor path.
+    Use your trained weights or checkpoint weights by adding `--model model_file` when calling yolo.py.  
+    Remember to modify class path or anchor path, with `--classes class_file` and `--anchors anchor_file`.
 
 If you want to use original pretrained weights for YOLOv3:  
     1. `wget https://pjreddie.com/media/files/darknet53.conv.74`  
