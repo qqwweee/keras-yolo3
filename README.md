@@ -51,6 +51,7 @@ For Tiny YOLOv3, just do in a similar way. And modify model path and anchor path
 
 3. Modify train.py and start training.
     Change 'PATH_TO_ANNOTATIONS' and 'PATH_TO_CLASSES'.
+    
     `python train.py`  
     Use your trained weights or checkpoint weights in yolo.py.  
 
