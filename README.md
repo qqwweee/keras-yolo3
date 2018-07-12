@@ -50,10 +50,11 @@ For Tiny YOLOv3, just do in a similar way. And modify model path and anchor path
     The file model_data/yolo_weights.h5 is used to load pretrained weights.
 
 3. Modify train.py and start training.
-    Change 'PATH_TO_ANNOTATIONS' and 'PATH_TO_CLASSES'.
+    Change 'PATH_TO_ANNOTATIONS' and 'PATH_TO_CLASSES'
     
-    `python train.py`  
-    Use your trained weights or checkpoint weights in yolo.py.  
+    ```python train.py```
+    
+    After, use your trained weights or checkpoint weights in yolo.py. 
 
 If you want to use original pretrained weights for YOLOv3:  
     1. `wget https://pjreddie.com/media/files/darknet53.conv.74`  
