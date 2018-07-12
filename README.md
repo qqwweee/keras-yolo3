@@ -13,13 +13,18 @@ A Keras implementation of YOLOv3 (Tensorflow backend) inspired by [allanzelener/
 
 1. Download YOLOv3 weights from [YOLO website](http://pjreddie.com/darknet/yolo/).
 2. Convert the Darknet YOLO model to a Keras model.
-3. Run YOLO detection.
 
 ```
 wget https://pjreddie.com/media/files/yolov3.weights
 python convert.py yolov3.cfg yolov3.weights model_data/yolo.h5
-python yolo.py   OR   python yolo_video.py [video_path] [output_path(optional)]
 ```
+3. Change 'PATH_TO_WEIGHTS', 'PATH_TO_CLASSES', 'PATH_TO_IMAGES', and 'PATH_TO_OUTPUT' in test_yolo.py
+4. Run YOLO detection.
+
+```
+python test_yolo.py   OR   python yolo_video.py [video_path] [output_path(optional)]
+```
+
 
 For Tiny YOLOv3, just do in a similar way. And modify model path and anchor path in yolo.py.
 
