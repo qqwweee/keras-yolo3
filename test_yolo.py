@@ -24,11 +24,9 @@ gpu_num=1
 
 class YOLO(object):
     def __init__(self):
-        #self.model_path = 'PATH_TO_WEIGHTS' # model path or trained weights path
-        self.model_path = 'logs/000/ep024-loss162.568-val_loss60.296.h5'
+        self.model_path = 'PATH_TO_WEIGHTS' # model path or trained weights path
         self.anchors_path = 'model_data/yolo_anchors.txt'
-        #self.classes_path = 'PATH_TO_CLASSES' # sample in model_data/coco_classes.txt
-        self.classes_path = 'model_data/bdd_classes.txt'
+        self.classes_path = 'PATH_TO_CLASSES' # sample in model_data/coco_classes.txt
         self.score = 0.3
         self.iou = 0.45
         self.class_names = self._get_class()
