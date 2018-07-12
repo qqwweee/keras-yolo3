@@ -16,11 +16,8 @@ from yolo3.utils import get_random_data
 def _main():
     annotation_path = 'PATH_TO_ANNOTATIONS'
     log_dir = 'logs/000/'
-<<<<<<< HEAD
     classes_path = 'PATH_TO_CLASSES' # example in model/coco_classes.txt
-=======
     classes_path = 'PATH_TO_CLASSES'
->>>>>>> 92e90ca7cd60b7d1e936f75d3cb91fd0f3dbbf38
     anchors_path = 'model_data/yolo_anchors.txt'
     class_names = get_classes(classes_path)
     num_classes = len(class_names)
