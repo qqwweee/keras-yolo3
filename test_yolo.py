@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 Adapt yolo.py to test YOLO on directory of images and save outputs. 
+TO-DO: Write localization information to file.
 """
 
 import colorsys
