@@ -13,13 +13,18 @@ A Keras implementation of YOLOv3 (Tensorflow backend) inspired by [allanzelener/
 
 1. Download YOLOv3 weights from [YOLO website](http://pjreddie.com/darknet/yolo/).
 2. Convert the Darknet YOLO model to a Keras model.
-3. Run YOLO detection.
 
 ```
 wget https://pjreddie.com/media/files/yolov3.weights
 python convert.py yolov3.cfg yolov3.weights model_data/yolo.h5
-python yolo.py   OR   python yolo_video.py [video_path] [output_path(optional)]
 ```
+3. Change 'PATH_TO_WEIGHTS', 'PATH_TO_CLASSES', 'PATH_TO_IMAGES', and 'PATH_TO_OUTPUT' in test_yolo.py
+4. Run YOLO detection.
+
+```
+python test_yolo.py   OR   python yolo_video.py [video_path] [output_path(optional)]
+```
+
 
 For Tiny YOLOv3, just do in a similar way. And modify model path and anchor path in yolo.py.
 
@@ -44,10 +49,12 @@ For Tiny YOLOv3, just do in a similar way. And modify model path and anchor path
 2. Make sure you have run `python convert.py -w yolov3.cfg yolov3.weights model_data/yolo_weights.h5`  
     The file model_data/yolo_weights.h5 is used to load pretrained weights.
 
-3. Modify train.py and start training.  
-    `python train.py`  
-    Use your trained weights or checkpoint weights in yolo.py.  
-    Remember to modify class path or anchor path.
+3. Modify train.py and start training.
+    Change 'PATH_TO_ANNOTATIONS' and 'PATH_TO_CLASSES'
+    
+    ```python train.py```
+    
+    After, use your trained weights or checkpoint weights in yolo.py. 
 
 If you want to use original pretrained weights for YOLOv3:  
     1. `wget https://pjreddie.com/media/files/darknet53.conv.74`  
