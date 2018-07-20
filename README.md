@@ -18,11 +18,26 @@ A Keras implementation of YOLOv3 (Tensorflow backend) inspired by [allanzelener/
 ```
 wget https://pjreddie.com/media/files/yolov3.weights
 python convert.py yolov3.cfg yolov3.weights model_data/yolo.h5
-python yolo.py   OR   python yolo_video.py [video_path] [output_path(optional)]
+python yolo.py   OR   python yolo_video.py [video_path] [--output output_path (optional)]
 ```
 
 For Tiny YOLOv3, just do in a similar way, just specify model path and anchor path by calling yolo.py with `--model model_file` and `--anchors anchor_file`.
 
+### Usage
+Use --help to see usage for both yolo.py and yolo_video.py:
+```
+usage: yolo.py [-h] [--model MODEL] [--anchors ANCHORS] [--classes CLASSES]
+               [--gpu_num GPU_NUM]
+
+```
+
+yolo_video.py needs an input video path from command line, and has an optional --output output_video_path:
+```
+usage: yolo_video.py [-h] [--model MODEL] [--anchors ANCHORS]
+                     [--classes CLASSES] [--gpu_num GPU_NUM] [--output OUTPUT]
+                     video_path
+
+```
 ---
 
 4. MultiGPU usage: use `--gpu_num N` to use N GPUs. It is passed to the [Keras multi_gpu_model()](https://keras.io/utils/#multi_gpu_model).

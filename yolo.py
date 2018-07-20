@@ -23,17 +23,29 @@ import argparse
 FLAGS = None
 
 class YOLO(object):
-    def __init__(self):
-        self.model_path = FLAGS.model # model path or trained weights path
-        self.anchors_path = FLAGS.anchors
-        self.classes_path = FLAGS.classes
-        self.score = 0.3
-        self.iou = 0.45
+    _defaults = {
+        "model_path": 'model_data/yolo.h5',
+        "anchors_path": 'model_data/yolo_anchors.txt',
+        "classes_path": 'model_data/coco_classes.txt',
+        "score" : 0.3,
+        "iou" : 0.45,
+        "model_image_size" : (416, 416),
+        "gpu_num" : 1,
+    }
+
+    @classmethod
+    def get_defaults(cls, n):
+        if n in cls._defaults:
+            return cls._defaults[n]
+        else:
+            return "Unrecognized attribute name '" + n + "'"
+
+    def __init__(self, **kwargs):
+        self.__dict__.update(self._defaults) # set up default values
+        self.__dict__.update(kwargs) # and update with user overrides
         self.class_names = self._get_class()
         self.anchors = self._get_anchors()
         self.sess = K.get_session()
-        self.model_image_size = (416, 416) # fixed size or (None, None), hw
-        self.gpu_num = FLAGS.gpu_num
         self.boxes, self.scores, self.classes = self.generate()
 
     def _get_class(self):
@@ -161,49 +173,6 @@ class YOLO(object):
     def close_session(self):
         self.sess.close()
 
-
-def detect_video(yolo, video_path, output_path=""):
-    import cv2
-    vid = cv2.VideoCapture(video_path)
-    if not vid.isOpened():
-        raise IOError("Couldn't open webcam or video")
-    video_FourCC    = int(vid.get(cv2.CAP_PROP_FOURCC))
-    video_fps       = vid.get(cv2.CAP_PROP_FPS)
-    video_size      = (int(vid.get(cv2.CAP_PROP_FRAME_WIDTH)),
-                        int(vid.get(cv2.CAP_PROP_FRAME_HEIGHT)))
-    isOutput = True if output_path != "" else False
-    if isOutput:
-        print("!!! TYPE:", type(output_path), type(video_FourCC), type(video_fps), type(video_size))
-        out = cv2.VideoWriter(output_path, video_FourCC, video_fps, video_size)
-    accum_time = 0
-    curr_fps = 0
-    fps = "FPS: ??"
-    prev_time = timer()
-    while True:
-        return_value, frame = vid.read()
-        image = Image.fromarray(frame)
-        image = yolo.detect_image(image)
-        result = np.asarray(image)
-        curr_time = timer()
-        exec_time = curr_time - prev_time
-        prev_time = curr_time
-        accum_time = accum_time + exec_time
-        curr_fps = curr_fps + 1
-        if accum_time > 1:
-            accum_time = accum_time - 1
-            fps = "FPS: " + str(curr_fps)
-            curr_fps = 0
-        cv2.putText(result, text=fps, org=(3, 15), fontFace=cv2.FONT_HERSHEY_SIMPLEX,
-                    fontScale=0.50, color=(255, 0, 0), thickness=2)
-        cv2.namedWindow("result", cv2.WINDOW_NORMAL)
-        cv2.imshow("result", result)
-        if isOutput:
-            out.write(result)
-        if cv2.waitKey(1) & 0xFF == ord('q'):
-            break
-    yolo.close_session()
-
-
 def detect_img(yolo):
     while True:
         img = input('Input image filename:')
@@ -217,39 +186,38 @@ def detect_img(yolo):
             r_image.show()
     yolo.close_session()
 
-
-
-if __name__ == '__main__':
-    parser = argparse.ArgumentParser()
+def yolo_parser():
+    # The default values are defined in the the class YOLO above, 
+    # thus suppress any default from the argparser here, if the option is not specified from the command line.
+    parser = argparse.ArgumentParser(argument_default=argparse.SUPPRESS)
 
     parser.add_argument(
       '--model',
       type=str,
-      default='model_data/yolo.h5',
-      help='path to model weight file, default model_data/yolo.h5'
+      help='path to model weight file, default ' + YOLO.get_defaults("model_path")
     )
 
     parser.add_argument(
       '--anchors',
       type=str,
-      default='model_data/yolo_anchors.txt',
-      help='path to anchor definitions, default model_data/yolo_anchors.txt'
+      help='path to anchor definitions, default '  + YOLO.get_defaults("anchors_path")
     )
 
     parser.add_argument(
       '--classes',
       type=str,
-      default='model_data/coco_classes.txt',
-      help='path to class definitions, default model_data/coco_classes.txt'
+      help='path to class definitions, default '  + YOLO.get_defaults("classes_path")
     )
 
     parser.add_argument(
       '--gpu_num',
       type=int,
-      default=1,
-      help='Number of GPU to use, default 1'
+      help='Number of GPU to use, default ' + str(YOLO.get_defaults("gpu_num"))
     )
+    return parser
 
+if __name__ == '__main__':
+    parser = yolo_parser()
     FLAGS, unparsed = parser.parse_known_args()
 
-    detect_img(YOLO())
+    detect_img(YOLO(**vars(FLAGS)))
