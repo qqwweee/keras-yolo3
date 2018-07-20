@@ -177,7 +177,7 @@ def detect_video(yolo, video_path, output_path=""):
     import cv2
     if output_path != "":
         isOutput = True
-        print("Output Video Path: " , type(output_path))
+        print("Output Video Path: " + output_path)
     else:
         isOutput = False
     vid = cv2.VideoCapture(video_path)
