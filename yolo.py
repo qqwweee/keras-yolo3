@@ -16,7 +16,7 @@ from PIL import Image, ImageFont, ImageDraw
 
 from yolo3.model import yolo_eval, yolo_body, tiny_yolo_body
 from yolo3.utils import letterbox_image
-import os
+import os, errno
 os.environ['CUDA_VISIBLE_DEVICES'] = '0'
 from keras.utils import multi_gpu_model
 gpu_num=1
@@ -33,6 +33,17 @@ class YOLO(object):
         self.sess = K.get_session()
         self.model_image_size = (416, 416) # fixed size or (None, None), hw
         self.boxes, self.scores, self.classes = self.generate()
+        self.counter_image = 1
+        self.images_path = './images'
+        self.frames_path = self.images_path + '/frames/'
+        self.object_path = self.images_path + '/objects/'
+
+        try:
+            os.makedirs(self.images_path)
+            os.makedirs(self.frames_path)
+        except OSError as e:
+            if e.errno != errno.EEXIST:
+                raise
 
     def _get_class(self):
         classes_path = os.path.expanduser(self.classes_path)
@@ -141,6 +152,7 @@ class YOLO(object):
             else:
                 text_origin = np.array([left, top + 1])
 
+            # Закоментировать что бы убрать отрисовку прямоугольников
             # My kingdom for a good redistributable image drawing library.
             for i in range(thickness):
                 draw.rectangle(
@@ -152,8 +164,28 @@ class YOLO(object):
             draw.text(text_origin, label, fill=(0, 0, 0), font=font)
             del draw
 
+            class_object = label.split(' ')[0]
+
+            def save_object():
+                area = (left, top, right, bottom)
+                cropped_image = image.crop(area)
+                cropped_image.save(self.object_path + class_object + '/frame_' + str(self.counter_image) + '_' + label + '.png')
+
+            if not os.path.exists(self.object_path + class_object):
+                try:
+                    os.makedirs(self.object_path + class_object)
+                    save_object()
+                except OSError as e:
+                    if e.errno != errno.EEXIST:
+                        raise
+            else:
+                save_object()
+
         end = timer()
         print(end - start)
+        image.save(self.frames_path + str(self.counter_image) + '.png')
+        self.counter_image+=1
+
         return image
 
     def close_session(self):
