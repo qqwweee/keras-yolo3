@@ -1,5 +1,4 @@
 import sys
-import cv2
 import argparse
 from yolo import YOLO, yolo_parser, detect_video
 
