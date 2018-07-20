@@ -1,16 +1,22 @@
 import sys
+import argparse
+from yolo import YOLO, yolo_parser, detect_video
 
-if len(sys.argv) < 2:
-    print("Usage: $ python {0} [video_path] [output_path(optional)]", sys.argv[0])
-    exit()
 
-from yolo import YOLO
-from yolo import detect_video
+FLAGS = None
 
 if __name__ == '__main__':
-    video_path = sys.argv[1]
-    if len(sys.argv) > 2:
-        output_path = sys.argv[2]
-        detect_video(YOLO(), video_path, output_path)
-    else:
-        detect_video(YOLO(), video_path)
+    parser = yolo_parser()
+
+    # Add the video_path and optional output video_path to the default cmdline options supported by class YOLO
+    parser.add_argument("video_path", help="input video path")
+    parser.add_argument(
+      '--output',
+      type=str,
+      default="",
+      help='[optional] output video path'
+    )
+
+    FLAGS = parser.parse_args()
+
+    detect_video(YOLO(**vars(FLAGS)), FLAGS.video_path, FLAGS.output)

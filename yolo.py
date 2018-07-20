@@ -17,21 +17,35 @@ from PIL import Image, ImageFont, ImageDraw
 from yolo3.model import yolo_eval, yolo_body, tiny_yolo_body
 from yolo3.utils import letterbox_image
 import os
-os.environ['CUDA_VISIBLE_DEVICES'] = '0'
 from keras.utils import multi_gpu_model
-gpu_num=1
+
+import argparse
+FLAGS = None
 
 class YOLO(object):
-    def __init__(self):
-        self.model_path = 'model_data/yolo.h5' # model path or trained weights path
-        self.anchors_path = 'model_data/yolo_anchors.txt'
-        self.classes_path = 'model_data/coco_classes.txt'
-        self.score = 0.3
-        self.iou = 0.45
+    _defaults = {
+        "model_path": 'model_data/yolo.h5',
+        "anchors_path": 'model_data/yolo_anchors.txt',
+        "classes_path": 'model_data/coco_classes.txt',
+        "score" : 0.3,
+        "iou" : 0.45,
+        "model_image_size" : (416, 416),
+        "gpu_num" : 1,
+    }
+
+    @classmethod
+    def get_defaults(cls, n):
+        if n in cls._defaults:
+            return cls._defaults[n]
+        else:
+            return "Unrecognized attribute name '" + n + "'"
+
+    def __init__(self, **kwargs):
+        self.__dict__.update(self._defaults) # set up default values
+        self.__dict__.update(kwargs) # and update with user overrides
         self.class_names = self._get_class()
         self.anchors = self._get_anchors()
         self.sess = K.get_session()
-        self.model_image_size = (416, 416) # fixed size or (None, None), hw
         self.boxes, self.scores, self.classes = self.generate()
 
     def _get_class(self):
@@ -82,8 +96,8 @@ class YOLO(object):
 
         # Generate output tensor targets for filtered bounding boxes.
         self.input_image_shape = K.placeholder(shape=(2, ))
-        if gpu_num>=2:
-            self.yolo_model = multi_gpu_model(self.yolo_model, gpus=gpu_num)
+        if self.gpu_num>=2:
+            self.yolo_model = multi_gpu_model(self.yolo_model, gpus=self.gpu_num)
         boxes, scores, classes = yolo_eval(self.yolo_model.output, self.anchors,
                 len(self.class_names), self.input_image_shape,
                 score_threshold=self.score, iou_threshold=self.iou)
@@ -159,9 +173,13 @@ class YOLO(object):
     def close_session(self):
         self.sess.close()
 
-
 def detect_video(yolo, video_path, output_path=""):
     import cv2
+    if output_path != "":
+        isOutput = True
+        print("Output Video Path: " + output_path)
+    else:
+        isOutput = False
     vid = cv2.VideoCapture(video_path)
     if not vid.isOpened():
         raise IOError("Couldn't open webcam or video")
@@ -169,7 +187,6 @@ def detect_video(yolo, video_path, output_path=""):
     video_fps       = vid.get(cv2.CAP_PROP_FPS)
     video_size      = (int(vid.get(cv2.CAP_PROP_FRAME_WIDTH)),
                         int(vid.get(cv2.CAP_PROP_FRAME_HEIGHT)))
-    isOutput = True if output_path != "" else False
     if isOutput:
         print("!!! TYPE:", type(output_path), type(video_FourCC), type(video_fps), type(video_size))
         out = cv2.VideoWriter(output_path, video_FourCC, video_fps, video_size)
@@ -201,7 +218,6 @@ def detect_video(yolo, video_path, output_path=""):
             break
     yolo.close_session()
 
-
 def detect_img(yolo):
     while True:
         img = input('Input image filename:')
@@ -215,7 +231,38 @@ def detect_img(yolo):
             r_image.show()
     yolo.close_session()
 
+def yolo_parser():
+    # The default values are defined in the the class YOLO above, 
+    # thus suppress any default from the argparser here, if the option is not specified from the command line.
+    parser = argparse.ArgumentParser(argument_default=argparse.SUPPRESS)
 
+    parser.add_argument(
+      '--model',
+      type=str,
+      help='path to model weight file, default ' + YOLO.get_defaults("model_path")
+    )
+
+    parser.add_argument(
+      '--anchors',
+      type=str,
+      help='path to anchor definitions, default '  + YOLO.get_defaults("anchors_path")
+    )
+
+    parser.add_argument(
+      '--classes',
+      type=str,
+      help='path to class definitions, default '  + YOLO.get_defaults("classes_path")
+    )
+
+    parser.add_argument(
+      '--gpu_num',
+      type=int,
+      help='Number of GPU to use, default ' + str(YOLO.get_defaults("gpu_num"))
+    )
+    return parser
 
 if __name__ == '__main__':
-    detect_img(YOLO())
+    parser = yolo_parser()
+    FLAGS, unparsed = parser.parse_known_args()
+
+    detect_img(YOLO(**vars(FLAGS)))
