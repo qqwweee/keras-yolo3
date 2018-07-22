@@ -18,25 +18,32 @@ A Keras implementation of YOLOv3 (Tensorflow backend) inspired by [allanzelener/
 ```
 wget https://pjreddie.com/media/files/yolov3.weights
 python convert.py yolov3.cfg yolov3.weights model_data/yolo.h5
-python yolo.py   OR   python yolo_video.py [video_path] [--output output_path (optional)]
+python yolo_video.py [OPTIONS...] --image, for image detection mode, OR
+python yolo_video.py [video_path] [output_path (optional)]
 ```
 
-For Tiny YOLOv3, just do in a similar way, just specify model path and anchor path by calling yolo.py with `--model model_file` and `--anchors anchor_file`.
+For Tiny YOLOv3, just do in a similar way, just specify model path and anchor path with `--model model_file` and `--anchors anchor_file`.
 
 ### Usage
-Use --help to see usage for both yolo.py and yolo_video.py:
-```
-usage: yolo.py [-h] [--model MODEL] [--anchors ANCHORS] [--classes CLASSES]
-               [--gpu_num GPU_NUM]
-
-```
-
-yolo_video.py needs an input video path from command line, and has an optional --output output_video_path:
+Use --help to see usage of yolo_video.py:
 ```
 usage: yolo_video.py [-h] [--model MODEL] [--anchors ANCHORS]
-                     [--classes CLASSES] [--gpu_num GPU_NUM] [--output OUTPUT]
-                     video_path
+                     [--classes CLASSES] [--gpu_num GPU_NUM] [-i]
+                     [video_input] [video_output]
 
+positional arguments:
+  video_input        Video input path
+  video_output       Video output path
+
+optional arguments:
+  -h, --help         show this help message and exit
+  --model MODEL      path to model weight file, default model_data/yolo.h5
+  --anchors ANCHORS  path to anchor definitions, default
+                     model_data/yolo_anchors.txt
+  --classes CLASSES  path to class definitions, default
+                     model_data/coco_classes.txt
+  --gpu_num GPU_NUM  Number of GPU to use, default 1
+  -i, --image        image detetion mode, will ignore all positional arguments
 ```
 ---
 
@@ -61,7 +68,7 @@ usage: yolo_video.py [-h] [--model MODEL] [--anchors ANCHORS]
 
 3. Modify train.py and start training.  
     `python train.py`  
-    Use your trained weights or checkpoint weights by adding `--model model_file` when calling yolo.py.  
+    Use your trained weights or checkpoint weights with command line option `--model model_file` when using yolo_video.py
     Remember to modify class path or anchor path, with `--classes class_file` and `--anchors anchor_file`.
 
 If you want to use original pretrained weights for YOLOv3:  
