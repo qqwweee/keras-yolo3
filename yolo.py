@@ -19,9 +19,6 @@ from yolo3.utils import letterbox_image
 import os
 from keras.utils import multi_gpu_model
 
-import argparse
-FLAGS = None
-
 class YOLO(object):
     _defaults = {
         "model_path": 'model_data/yolo.h5',
@@ -175,11 +172,6 @@ class YOLO(object):
 
 def detect_video(yolo, video_path, output_path=""):
     import cv2
-    if output_path != "":
-        isOutput = True
-        print("Output Video Path: " + output_path)
-    else:
-        isOutput = False
     vid = cv2.VideoCapture(video_path)
     if not vid.isOpened():
         raise IOError("Couldn't open webcam or video")
@@ -187,6 +179,7 @@ def detect_video(yolo, video_path, output_path=""):
     video_fps       = vid.get(cv2.CAP_PROP_FPS)
     video_size      = (int(vid.get(cv2.CAP_PROP_FRAME_WIDTH)),
                         int(vid.get(cv2.CAP_PROP_FRAME_HEIGHT)))
+    isOutput = True if output_path != "" else False
     if isOutput:
         print("!!! TYPE:", type(output_path), type(video_FourCC), type(video_fps), type(video_size))
         out = cv2.VideoWriter(output_path, video_FourCC, video_fps, video_size)
@@ -218,51 +211,3 @@ def detect_video(yolo, video_path, output_path=""):
             break
     yolo.close_session()
 
-def detect_img(yolo):
-    while True:
-        img = input('Input image filename:')
-        try:
-            image = Image.open(img)
-        except:
-            print('Open Error! Try again!')
-            continue
-        else:
-            r_image = yolo.detect_image(image)
-            r_image.show()
-    yolo.close_session()
-
-def yolo_parser():
-    # The default values are defined in the the class YOLO above, 
-    # thus suppress any default from the argparser here, if the option is not specified from the command line.
-    parser = argparse.ArgumentParser(argument_default=argparse.SUPPRESS)
-
-    parser.add_argument(
-      '--model',
-      type=str,
-      help='path to model weight file, default ' + YOLO.get_defaults("model_path")
-    )
-
-    parser.add_argument(
-      '--anchors',
-      type=str,
-      help='path to anchor definitions, default '  + YOLO.get_defaults("anchors_path")
-    )
-
-    parser.add_argument(
-      '--classes',
-      type=str,
-      help='path to class definitions, default '  + YOLO.get_defaults("classes_path")
-    )
-
-    parser.add_argument(
-      '--gpu_num',
-      type=int,
-      help='Number of GPU to use, default ' + str(YOLO.get_defaults("gpu_num"))
-    )
-    return parser
-
-if __name__ == '__main__':
-    parser = yolo_parser()
-    FLAGS, unparsed = parser.parse_known_args()
-
-    detect_img(YOLO(**vars(FLAGS)))
