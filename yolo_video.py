@@ -3,7 +3,6 @@ import argparse
 from yolo import YOLO, detect_video
 from PIL import Image
 
-
 def detect_img(yolo):
     while True:
         img = input('Input image filename:')
@@ -22,7 +21,9 @@ FLAGS = None
 if __name__ == '__main__':
     # class YOLO defines the default value, so suppress any default here
     parser = argparse.ArgumentParser(argument_default=argparse.SUPPRESS)
-
+    '''
+    Command line options
+    '''
     parser.add_argument(
         '--model', type=str,
         help='path to model weight file, default ' + YOLO.get_defaults("model_path")
@@ -44,10 +45,12 @@ if __name__ == '__main__':
     )
 
     parser.add_argument(
-        '-i', '--image', default=False, action="store_true",
-        help='image detetion mode, will ignore all positional arguments'
+        '--image', default=False, action="store_true",
+        help='Image detection mode, will ignore all positional arguments'
     )
-
+    '''
+    Command line positional arguments -- for video detection mode
+    '''
     parser.add_argument(
         "video_input", nargs='?', type=str,
         help = "Video input path"
@@ -61,10 +64,14 @@ if __name__ == '__main__':
     FLAGS = parser.parse_args()
 
     if FLAGS.image:
-        print("Image detection mode, ignoring other command line arguments.")
+        """
+        Image detection mode, disregard any remaining command line arguments
+        """
+        print("Image detection mode")
+        if "video_input" in FLAGS:
+            print(" Ignoring remaining command line arguments: " + FLAGS.video_input + "," + FLAGS.video_output)
         detect_img(YOLO(**vars(FLAGS)))
-    elif "video_input" not in FLAGS:
-        print(parser.print_help())
-        print("Must specify at least vide_input_path")
-    else:
+    elif "video_input" in FLAGS:
         detect_video(YOLO(**vars(FLAGS)), FLAGS.video_input, FLAGS.video_output)
+    else:
+        print("Must specify at least vide_input_path.  See usage with --help.")

@@ -28,7 +28,7 @@ For Tiny YOLOv3, just do in a similar way, just specify model path and anchor pa
 Use --help to see usage of yolo_video.py:
 ```
 usage: yolo_video.py [-h] [--model MODEL] [--anchors ANCHORS]
-                     [--classes CLASSES] [--gpu_num GPU_NUM] [-i]
+                     [--classes CLASSES] [--gpu_num GPU_NUM] [--image]
                      [video_input] [video_output]
 
 positional arguments:
@@ -43,7 +43,7 @@ optional arguments:
   --classes CLASSES  path to class definitions, default
                      model_data/coco_classes.txt
   --gpu_num GPU_NUM  Number of GPU to use, default 1
-  -i, --image        image detetion mode, will ignore all positional arguments
+  --image            Image detection mode, will ignore all positional arguments
 ```
 ---
 
