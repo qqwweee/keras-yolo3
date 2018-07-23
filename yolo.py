@@ -1,7 +1,6 @@
-#! /usr/bin/env python
 # -*- coding: utf-8 -*-
 """
-Run a YOLO_v3 style detection model on test images.
+Class definition of YOLO_v3 style detection model on image and video
 """
 
 import colorsys
