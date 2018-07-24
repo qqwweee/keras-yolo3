@@ -131,6 +131,8 @@ class YOLO(object):
                     size=np.floor(3e-2 * image.size[1] + 0.5).astype('int32'))
         thickness = (image.size[0] + image.size[1]) // 300
 
+        history = open('history_object_detection.txt', 'a')
+
         for i, c in reversed(list(enumerate(out_classes))):
             predicted_class = self.class_names[c]
             box = out_boxes[i]
@@ -170,6 +172,7 @@ class YOLO(object):
                 area = (left, top, right, bottom)
                 cropped_image = image.crop(area)
                 cropped_image.save(self.object_path + class_object + '/frame_' + str(self.counter_image) + '_' + label + '.png')
+                history.write('Class: ' + class_object + ' Frame: ' + str(self.counter_image) + ' Probability: ' + label + '\r\n')
 
             if not os.path.exists(self.object_path + class_object):
                 try:
@@ -181,6 +184,8 @@ class YOLO(object):
             else:
                 save_object()
 
+        history.write('\r\n')
+        history.close()
         end = timer()
         print(end - start)
         image.save(self.frames_path + str(self.counter_image) + '.png')
