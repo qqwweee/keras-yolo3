@@ -1,2 +1,2 @@
 - захват видео потока rtsp и сохранение в последовательность изображений - ffmpeg -rtsp_transport tcp -i rtsp://172.17.3.115/mjpeg/ch01/sub/av_stream -f image2 -vf fps=fps=1 hello/img%03d.png
-- создание видео из изображений - ffmpeg -framerate 1 -pattern_type glob -i '*.png' -c:v libx264 -r 30 -pix_fmt yuv420p out.mp4
+- создание видео из изображений  - ffmpeg -framerate 1 -pattern_type glob -i '*.png' -c:v libx264 -r 30 -pix_fmt yuv420p out.mp4
