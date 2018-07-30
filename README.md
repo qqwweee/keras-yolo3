@@ -29,11 +29,11 @@ Use --help to see usage of yolo_video.py:
 ```
 usage: yolo_video.py [-h] [--model MODEL] [--anchors ANCHORS]
                      [--classes CLASSES] [--gpu_num GPU_NUM] [--image]
-                     [video_input] [video_output]
+                     [--input] [--output]
 
 positional arguments:
-  video_input        Video input path
-  video_output       Video output path
+  --input        Video input path
+  --output       Video output path
 
 optional arguments:
   -h, --help         show this help message and exit
