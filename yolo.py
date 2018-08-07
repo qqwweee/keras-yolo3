@@ -23,6 +23,7 @@ class YOLO(object):
         "model_path": 'model_data/yolo.h5',
         "anchors_path": 'model_data/yolo_anchors.txt',
         "classes_path": 'model_data/coco_classes.txt',
+        "font_path": 'font/FiraMono-Medium.otf',
         "score" : 0.3,
         "iou" : 0.45,
         "model_image_size" : (416, 416),
@@ -99,9 +100,7 @@ class YOLO(object):
                 score_threshold=self.score, iou_threshold=self.iou)
         return boxes, scores, classes
 
-    def detect_image(self, image):
-        start = timer()
-
+    def detect_image_boxes(self, image):
         if self.model_image_size != (None, None):
             assert self.model_image_size[0]%32 == 0, 'Multiples of 32 required'
             assert self.model_image_size[1]%32 == 0, 'Multiples of 32 required'
@@ -123,10 +122,10 @@ class YOLO(object):
                 self.input_image_shape: [image.size[1], image.size[0]],
                 K.learning_phase(): 0
             })
+        return out_boxes, out_scores, out_classes
 
-        print('Found {} boxes for {}'.format(len(out_boxes), 'img'))
-
-        font = ImageFont.truetype(font='font/FiraMono-Medium.otf',
+    def mark_image_boxes(self, image, out_boxes, out_scores, out_classes):
+        font = ImageFont.truetype(font=self.font_path,
                     size=np.floor(3e-2 * image.size[1] + 0.5).astype('int32'))
         thickness = (image.size[0] + image.size[1]) // 300
 
@@ -161,7 +160,16 @@ class YOLO(object):
                 fill=self.colors[c])
             draw.text(text_origin, label, fill=(0, 0, 0), font=font)
             del draw
+        return image
 
+    def detect_image(self, image):
+        start = timer()
+
+        out_boxes, out_scores, out_classes = self.detect_image_boxes(image)
+
+        print('Found {} boxes for {}'.format(len(out_boxes), 'img'))
+
+        image = self.mark_image_boxes(image, out_boxes, out_scores, out_classes)
         end = timer()
         print(end - start)
         return image
