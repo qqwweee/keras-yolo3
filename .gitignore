@@ -106,3 +106,10 @@ ENV/
 
 # mypy
 .mypy_cache/
+
+.*.swp 
+2007_*.txt
+train.txt
+challenge_2018*.txt
+VOCdevkit
+open-images-dataset
