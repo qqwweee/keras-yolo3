@@ -49,7 +49,8 @@ def main():
     #                'y0': 0.645892, 'y1': 0.673277}]
 
     with open('challenge_2018_train.txt', 'w') as f:
-        for idx, img_id in enumerate(ids):
+
+        def write_line(img_id, img_annos):
             img_path = 'open-images-dataset/train/{}.jpg'.format(img_id)
             img_path = os.path.abspath(img_path)
             img = cv2.imread(img_path)
@@ -57,16 +58,28 @@ def main():
             h, w, c = img.shape
             if h != 1024 and w != 1024:
                 print('{}.jpg is {}x{}!'.format(img_id, w, h))
-            anno_for_img = [a for a in annotations if a['id'] == img_id]
             f.write(img_path)
-            for a in anno_for_img:
+            for aa in img_annos:
                 f.write(' {},{},{},{},{}'.format(
-                        int(a['x0']*w), int(a['y0']*h),
-                        int(a['x1']*w), int(a['y1']*h),
-                        cls_list.index(a['label'])))
+                        int(aa['x0']*w), int(aa['y0']*h),
+                        int(aa['x1']*w), int(aa['y1']*h),
+                        cls_list.index(aa['label'])))
             f.write('\n')
+
+        img_id = None
+        img_annos = []
+        for idx, a in enumerate(annotations):
             if idx % 10000 == 0:
-                print('processing image #{}'.format(idx))
+                print('processing annotation #{}'.format(idx))
+            if img_id is None:
+                img_id = a['id']
+            if img_id != a['id']:
+                write_line(img_id, img_annos)
+                img_id = None
+                img_annos = []
+            else:
+                img_annos.append(a)
+        write_line(img_id, img_annos)
 
 
 if __name__ == '__main__':
