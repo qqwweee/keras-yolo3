@@ -56,7 +56,8 @@ def main():
             img = cv2.imread(img_path)
             assert img is not None
             h, w, c = img.shape
-            if h != 1024 and w != 1024:
+            #if h != 1024 and w != 1024:
+            if h < 416 or w < 416:
                 print('{}.jpg is {}x{}!'.format(img_id, w, h))
             f.write(img_path)
             for aa in img_annos:
@@ -66,18 +67,27 @@ def main():
                         cls_list.index(aa['label'])))
             f.write('\n')
 
-        img_id = annotations[0]['id']
-        img_annos = []
+        #img_id = annotations[0]['id']
+        #img_annos = []
+        #for idx, a in enumerate(annotations):
+        #    if idx % 10000 == 0:
+        #        print('processing annotation #{}'.format(idx))
+        #    if img_id == a['id']:
+        #        img_annos.append(a)
+        #    else:
+        #        write_line(img_id, img_annos)
+        #        img_id = a['id']
+        #        img_annos = [a]
+        #write_line(img_id, img_annos)
+        anno_dict = {}
         for idx, a in enumerate(annotations):
             if idx % 10000 == 0:
                 print('processing annotation #{}'.format(idx))
-            if img_id == a['id']:
-                img_annos.append(a)
-            else:
-                write_line(img_id, img_annos)
-                img_id = a['id']
-                img_annos = [a]
-        write_line(img_id, img_annos)
+            if a['id'] not in anno_dict:
+                anno_dict[a['id']] = []
+            anno_dict[a['id']].append(a)
+        for img_id, img_annos in anno_dict.items():
+            write_line(img_id, img_annos)
 
 
 if __name__ == '__main__':
