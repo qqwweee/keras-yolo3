@@ -48,7 +48,7 @@ def main():
     #                'x0': 0.760000, 'x1': 0.778125,
     #                'y0': 0.645892, 'y1': 0.673277}]
 
-    with open('challenge_2018_train.txt', 'w') as f:
+    with open('kaggle_2018_train.txt', 'w') as f:
 
         def write_line(img_id, img_annos):
             img_path = 'open-images-dataset/train/{}.jpg'.format(img_id)
@@ -66,19 +66,17 @@ def main():
                         cls_list.index(aa['label'])))
             f.write('\n')
 
-        img_id = None
+        img_id = annotations[0]['id']
         img_annos = []
         for idx, a in enumerate(annotations):
             if idx % 10000 == 0:
                 print('processing annotation #{}'.format(idx))
-            if img_id is None:
-                img_id = a['id']
-            if img_id != a['id']:
-                write_line(img_id, img_annos)
-                img_id = None
-                img_annos = []
-            else:
+            if img_id == a['id']:
                 img_annos.append(a)
+            else:
+                write_line(img_id, img_annos)
+                img_id = a['id']
+                img_annos = [a]
         write_line(img_id, img_annos)
 
 
