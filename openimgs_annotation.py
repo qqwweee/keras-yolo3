@@ -39,8 +39,8 @@ def get_annotations(annotation_path, cls_list):
 
 
 def main():
-    cls_list, cls_desc = get_class_descriptions('open-images-dataset/challenge-2018/challenge-2018-class-descriptions-500.csv')
-    ids, annotations = get_annotations('open-images-dataset/challenge-2018/challenge-2018-train-annotations-bbox.csv', cls_list)
+    cls_list, cls_desc = get_class_descriptions('open-images-dataset/kaggle-2018-object-detection/challenge-2018-class-descriptions-500.csv')
+    ids, annotations = get_annotations('open-images-dataset/kaggle-2018-object-detection/challenge-2018-train-annotations-bbox.csv', cls_list)
     ### for testing
     #ids = ['8d6dec80235b6fea']
     #annotations = [{'id': '8d6dec80235b6fea', 'label': '/m/09j5n',
