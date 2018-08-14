@@ -109,7 +109,7 @@ ENV/
 
 .*.swp 
 2007_*.txt
+kaggle*.txt
 train.txt
-challenge_2018*.txt
 VOCdevkit
 open-images-dataset
