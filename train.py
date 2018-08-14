@@ -21,7 +21,8 @@ BATCH_SIZE_2 = 6
 def _main():
     annotation_path = 'train.txt'
     log_dir = 'logs/000/'
-    classes_path = 'model_data/voc_classes.txt'
+    #classes_path = 'model_data/voc_classes.txt'
+    classes_path = 'model_data/openimgs_classes.txt'
     anchors_path = 'model_data/yolo_anchors.txt'
     class_names = get_classes(classes_path)
     num_classes = len(class_names)
@@ -58,6 +59,7 @@ def _main():
     np.random.shuffle(lines)
     np.random.seed(None)
     num_val = int(len(lines)*val_split)
+    num_val = 10000 if num_val > 10000 else num_val
     num_train = len(lines) - num_val
 
     # Train with frozen layers first, to get a stable loss.
@@ -73,7 +75,7 @@ def _main():
                 steps_per_epoch=max(1, num_train//batch_size),
                 validation_data=data_generator_wrapper(lines[num_train:], batch_size, input_shape, anchors, num_classes),
                 validation_steps=max(1, num_val//batch_size),
-                epochs=50,
+                epochs=10,
                 initial_epoch=0,
                 callbacks=[logging, checkpoint])
         model.save_weights(log_dir + 'trained_weights_stage_1.h5')
@@ -93,9 +95,10 @@ def _main():
             validation_data=data_generator_wrapper(lines[num_train:], batch_size, input_shape, anchors, num_classes),
             validation_steps=max(1, num_val//batch_size),
             epochs=100,
-            initial_epoch=50,
+            initial_epoch=10,
             callbacks=[logging, checkpoint, reduce_lr, early_stopping])
         model.save_weights(log_dir + 'trained_weights_final.h5')
+        model.save(log_dir + 'trained_model_final.h5')
 
     # Further training if needed.
 
@@ -106,6 +109,7 @@ def get_classes(classes_path):
         class_names = f.readlines()
     class_names = [c.strip() for c in class_names]
     return class_names
+
 
 def get_anchors(anchors_path):
     '''loads the anchors from a file'''
@@ -175,6 +179,7 @@ def create_tiny_model(input_shape, anchors, num_classes, load_pretrained=True, f
 
     return model
 
+
 def data_generator(annotation_lines, batch_size, input_shape, anchors, num_classes):
     '''data generator for fit_generator'''
     n = len(annotation_lines)
@@ -194,10 +199,12 @@ def data_generator(annotation_lines, batch_size, input_shape, anchors, num_class
         y_true = preprocess_true_boxes(box_data, input_shape, anchors, num_classes)
         yield [image_data, *y_true], np.zeros(batch_size)
 
+
 def data_generator_wrapper(annotation_lines, batch_size, input_shape, anchors, num_classes):
     n = len(annotation_lines)
     if n==0 or batch_size<=0: return None
     return data_generator(annotation_lines, batch_size, input_shape, anchors, num_classes)
+
 
 if __name__ == '__main__':
     _main()
