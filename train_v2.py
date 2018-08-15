@@ -412,8 +412,8 @@ class Yolo(object):
             file_id = os.path.split(image)[-1].split('.')[0]
             val_images.append(image)
             for bbox in bboxes:
-                class_id, left, top, right, bottom = bbox.split(',')
-                class_name = self.class_names[class_id]
+                left, top, right, bottom, class_id = bbox.split(',')
+                class_name = self.class_names[int(class_id)]
                 bbox = "{} {} {} {}".format(left, top, right, bottom)
                 val_bboxes.append({"class_name": class_name, "bbox": bbox, "used": False})
                 self.gt_counter_per_class[class_name] += 1
