@@ -54,7 +54,9 @@ def main():
             img_path = 'open-images-dataset/train/{}.jpg'.format(img_id)
             img_path = os.path.abspath(img_path)
             img = cv2.imread(img_path)
-            assert img is not None
+            if img is None:
+                print('{} is not found!!!'.format(img_path))
+                return
             h, w, c = img.shape
             #if h != 1024 and w != 1024:
             if h < 416 or w < 416:
