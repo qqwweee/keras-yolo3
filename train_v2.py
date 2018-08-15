@@ -5,7 +5,7 @@ import math
 import cv2
 import json
 import shutil
-from collections import defaultdict
+from collections import defaultdict, OrderedDict
 from glob import glob
 from matplotlib.pyplot import cm
 from PIL import Image
@@ -70,7 +70,7 @@ class Yolo(object):
         # training batch size
         self.step1_batch_size = 32
         self.step2_batch_size = 8  # note that more GPU memory is required after unfreezing the body
-        self.yolo_model = self.create_model(yolo_weights_path='model_data/yolo_weights.h5')
+        self.yolo_model, self.yolo_body = self.create_model(yolo_weights_path='model_data/yolo_weights.h5')
 
         # PIL setting
         self.image_size = (1280, 720, 3)
@@ -94,7 +94,7 @@ class Yolo(object):
         self.score = 0.3
         self.iou = 0.45
         self.input_image_shape = K.placeholder(shape=(2, ))
-        self.boxes, self.scores, self.classes, self.eval_inputs = yolo_eval_v2(self.yolo_model.output_shape, self.anchors,
+        self.boxes, self.scores, self.classes, self.eval_inputs = yolo_eval_v2(self.yolo_body.output_shape, self.anchors,
                                                                                len(self.class_names), self.input_image_shape,
                                                                                score_threshold=self.score, iou_threshold=self.iou)
         self.sess = K.get_session()
@@ -114,7 +114,7 @@ class Yolo(object):
         print('Create YOLOv3 model with {} anchors and {} classes.'.format(num_anchors, self.num_classes))
 
         if load_pretrained:
-            model_body.load_weights(yolo_weights_path)
+            model_body.load_weights(yolo_weights_path, by_name=True, skip_mismatch=True)
             print('Load Yolo weights {}.'.format(yolo_weights_path))
             if freeze_body in [1, 2]:
                 # Freeze darknet53 body or freeze all but 3 output layers.
@@ -133,7 +133,7 @@ class Yolo(object):
         yolo_model = Model(inputs=[image_input, *y_true], outputs=model_loss)
         print('==========================================   Yolo Body   =========================================')
         yolo_model.summary()
-        return yolo_model
+        return yolo_model, model_body
 
     def train(self):
 
@@ -150,8 +150,12 @@ class Yolo(object):
         epoch = len(self.train_data) // self.step1_batch_size
 
         # Step1
+        mAP_maximum = 0
+        loss_maximum = 0
         start = 0
         end = 50 * epoch
+        loss_save_dict = OrderedDict()
+        mAP_save_dict = OrderedDict()
         # Yolo Compile
         self.yolo_model.compile(loss={'yolo_loss': lambda y_true, y_pred: y_pred}, optimizer=Adam(lr=1e-3))
         for step in range(start, end):
@@ -163,22 +167,41 @@ class Yolo(object):
             print("%d [Yolo loss: %f]" % (step, y_loss))
 
             self.save_yolo_histogram(step)
-            log_scalar(self.callback, 'Yolo loss', y_loss, step)
+            log_scalar(self.callback, 'training loss', y_loss, step)
 
             # Evaluate
             if step % epoch == 0:
+                yolo_loss = self.test(step // epoch, 'test loss')
                 print('Evaluate mAP')
-                _ = self.eval(step // epoch, self.val_images, self.tmp_gt_files_path, 'mAP')
+                mAP = self.eval(step // epoch, self.val_images, self.tmp_gt_files_path, 'mAP')
+
+                # Save the best loss weights
+                if yolo_loss > loss_maximum:
+                    self.yolo_body.save_weights(
+                        os.path.join(MODELS_PATH, 'Step1_yolo_weight_loss_best.h5'.format(step // epoch)))
+                    loss_maximum = yolo_loss
+                    loss_save_dict[str(step // epoch)] = yolo_loss
+
+                # Save the best mAP weights
+                if mAP > mAP_maximum:
+                    self.yolo_body.save_weights(
+                        os.path.join(MODELS_PATH, 'Step1_yolo_weight_mAP_best.h5'.format(step // epoch)))
+                    mAP_maximum = mAP
+                    mAP_save_dict[str(step // epoch)] = mAP
 
             # Save model every 5 epoch
-            if step % epoch == 5:
-                self.yolo_model.save_weights(os.path.join(MODELS_PATH, 'Step1_yolo_weight_{}.h5'.format(step // epoch)))
+            if step % (epoch * 5) == 0:
+                self.yolo_body.save_weights(os.path.join(MODELS_PATH, 'Step1_yolo_weight_{}.h5'.format(step // epoch)))
 
         # Step2
+        dummy_r = np.zeros(self.step2_batch_size)
+        yolo_train_batch = self.data_generator_wrapper(self.train_data, self.step2_batch_size,
+                                                       self.input_shape, self.anchors, self.num_classes)
+        epoch = len(self.train_data) // self.step2_batch_size
         start = end
         end = end + 50 * epoch
         self.set_trainability(self.yolo_model, trainable=True)
-        self.yolo_model.compile(loss={'yolo_loss': lambda y_true, y_pred: y_pred}, optimizer=Adam(lr=1e-3))
+        self.yolo_model.compile(loss={'yolo_loss': lambda y_true, y_pred: y_pred}, optimizer=Adam(lr=1e-4))
         for step in range(start, end):
             # ---------------------
             #      Train Yolo
@@ -188,16 +211,46 @@ class Yolo(object):
             print("%d [Yolo loss: %f]" % (step, y_loss))
 
             self.save_yolo_histogram(step)
-            log_scalar(self.callback, 'Yolo loss', y_loss, step)
+            log_scalar(self.callback, 'training loss', y_loss, step)
 
             # Evaluate
             if step % epoch == 0:
+                yolo_loss = self.test((step - start) // epoch, 'test loss')
                 print('Evaluate mAP')
-                _ = self.eval(step // epoch, self.val_images, self.tmp_gt_files_path, 'mAP')
+                mAP = self.eval((step - start) // epoch, self.val_images, self.tmp_gt_files_path, 'mAP')
+
+                # Save the best loss weights
+                if yolo_loss > loss_maximum:
+                    self.yolo_body.save_weights(
+                        os.path.join(MODELS_PATH, 'Step2_yolo_weight_loss_best.h5'.format(step // epoch)))
+                    loss_maximum = yolo_loss
+                    loss_save_dict[str(step // epoch)] = yolo_loss
+
+                # Save the best mAP weights
+                if mAP > mAP_maximum:
+                    self.yolo_body.save_weights(
+                        os.path.join(MODELS_PATH, 'Step2_yolo_weight_mAP_best.h5'.format((step - start) // epoch)))
+                    mAP_maximum = mAP
+                    mAP_save_dict[str((step - start) // epoch)] = mAP
 
             # Save model every 5 epoch
-            if step % epoch == 5:
-                self.yolo_model.save_weights(os.path.join(MODELS_PATH, 'Step1_yolo_weight_{}.h5'.format(step // epoch)))
+            if step % (epoch * 5) == 5:
+                self.yolo_body.save_weights(os.path.join(MODELS_PATH, 'Step2_yolo_weight_{}.h5'.format((step - start) // epoch)))
+
+    def test(self, epoch, tab='Yolo loss'):
+        print("Testing ...")
+        batch_size = 32
+        dummy_r = np.zeros(batch_size)
+        yolo_test_batch = self.data_generator_wrapper(self.val_data, batch_size, self.input_shape,
+                                                      self.anchors, self.num_classes)
+        total_loss = 0
+        for step, _ in enumerate(range(0, len(self.val_data), batch_size)):
+            img_input, y_true = next(yolo_test_batch)
+            total_loss += self.yolo_model.test_on_batch([img_input, *y_true], dummy_r)
+        total_loss /= step
+        print("[Yolo testing loss: {}]".format(total_loss))
+        log_scalar(self.callback, tab, total_loss, epoch)
+        return total_loss
 
     def eval(self, step, eval_images_path, ground_truth_path, tag='image'):
         # Add the class predict temp dict
@@ -225,8 +278,7 @@ class Yolo(object):
                 files_id.append(file_id)
             images = np.array(images)
 
-            out_bboxes_1, out_bboxes_2, out_bboxes_3 = self.yolo_model.predict(images)
-            # TODO: fix here
+            out_bboxes_1, out_bboxes_2, out_bboxes_3 = self.yolo_body.predict_on_batch(images)
             for i, out in enumerate(zip(out_bboxes_1, out_bboxes_2, out_bboxes_3)):
                 # Predict
                 out_boxes, out_scores, out_classes = self.sess.run(
@@ -368,14 +420,9 @@ class Yolo(object):
     def save_yolo_histogram(self, step, tag=""):
         if tag:
             tag = '_' + tag + '_'
-        # Rodnet Generator
-        for i in range(1, 10):
+        for i in range(1, 75):
             layer_name = "conv2d_{}".format(i)
-            weights = self.yolo_model.get_layer(layer_name).get_weights()
-            log_histogram(self.callback, 'Yolo' + tag + 'Generator/' + layer_name, weights, step)
-        for i in range(14, 79):
-            layer_name = "conv2d_{}".format(i)
-            if i in (63, 71, 79):
+            if i in (59, 67, 75):
                 weights, biases = self.yolo_model.get_layer(layer_name).get_weights()
                 log_histogram(self.callback, 'Yolo' + tag + 'Output/' + layer_name + '_weights', weights, step)
                 log_histogram(self.callback, 'Yolo' + tag + 'Output/' + layer_name + '_biases', biases, step)
@@ -406,8 +453,8 @@ class Yolo(object):
         # Val data
         val_data = lines[num_train:]
         val_images = []
-        val_bboxes = []
         for data in val_data:
+            val_bboxes = []
             image, *bboxes = data.split()
             file_id = os.path.split(image)[-1].split('.')[0]
             val_images.append(image)
