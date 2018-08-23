@@ -1,5 +1,8 @@
 # keras-yolo3
 
+[![Build Status](https://travis-ci.com/Borda/keras-yolo3.svg?branch=master)](https://travis-ci.com/Borda/keras-yolo3)
+[![Build status](https://ci.appveyor.com/api/projects/status/24m00vife2wae7k0?svg=true)](https://ci.appveyor.com/project/Borda/keras-yolo3)
+[![Codacy Badge](https://api.codacy.com/project/badge/Grade/e03dbbb0f0fd48baa70f637456f1fe36)](https://www.codacy.com/project/Borda/keras-yolo3/dashboard?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=Borda/keras-yolo3&amp;utm_campaign=Badge_Grade_Dashboard)
 [![license](https://img.shields.io/github/license/mashape/apistatus.svg)](LICENSE)
 
 ## Introduction
@@ -15,7 +18,7 @@ A Keras implementation of YOLOv3 (Tensorflow backend) inspired by [allanzelener/
 2. Convert the Darknet YOLO model to a Keras model.
 3. Run YOLO detection.
 
-```
+```bash
 wget https://pjreddie.com/media/files/yolov3.weights
 python convert.py yolov3.cfg yolov3.weights model_data/yolo.h5
 python yolo_video.py [OPTIONS...] --image, for image detection mode, OR
@@ -26,7 +29,7 @@ For Tiny YOLOv3, just do in a similar way, just specify model path and anchor pa
 
 ### Usage
 Use --help to see usage of yolo_video.py:
-```
+```bash
 usage: yolo_video.py [-h] [--model MODEL] [--anchors ANCHORS]
                      [--classes CLASSES] [--gpu_num GPU_NUM] [--image]
                      [--input] [--output]
