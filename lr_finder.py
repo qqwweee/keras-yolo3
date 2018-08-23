@@ -3,6 +3,8 @@ Code from https://gist.github.com/jeremyjordan/ac0229abd4b2b7000aca1643e88e0f02#
 '''
 
 
+import math
+import keras.backend as K
 from keras.callbacks import Callback
 import matplotlib.pyplot as plt
 
@@ -49,7 +51,7 @@ class LRFinder(Callback):
     def clr(self):
         '''Calculate the learning rate.'''
         x = self.iteration / self.total_iterations
-        return self.min_lr + (self.max_lr-self.min_lr) * x
+        return self.min_lr * math.pow((self.max_lr/self.min_lr), x)
 
     def on_train_begin(self, logs=None):
         '''Initialize the learning rate to the minimum value at the start of training.'''
@@ -69,16 +71,24 @@ class LRFinder(Callback):
 
         K.set_value(self.model.optimizer.lr, self.clr())
 
-    def plot_lr(self):
+    def plot_lr(self, fig_name=None):
         '''Helper function to quickly inspect the learning rate schedule.'''
         plt.plot(self.history['iterations'], self.history['lr'])
         plt.yscale('log')
         plt.xlabel('Iteration')
         plt.ylabel('Learning rate')
+        if fig_name is None:
+            plt.show()
+        else:
+            plt.savefig(fig_name)
 
-    def plot_loss(self):
+    def plot_loss(self, fig_name=None):
         '''Helper function to quickly observe the learning rate experiment results.'''
         plt.plot(self.history['lr'], self.history['loss'])
         plt.xscale('log')
         plt.xlabel('Learning rate')
         plt.ylabel('Loss')
+        if fig_name is None:
+            plt.show()
+        else:
+            plt.savefig(fig_name)
