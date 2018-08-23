@@ -15,17 +15,15 @@ from yolo3.utils import get_random_data
 
 
 USE_DARKNET53 = True
-STAGE1_EPOCHS = 1
-STAGE2_EPOCHS = 100
+STAGE1_EPOCHS = 3
+STAGE2_EPOCHS = 6
 BATCH_SIZE_1 = 32
 BATCH_SIZE_2 = 6
-NUM_GPU = 1
 
 
 def _main():
     annotation_path = 'train.txt'
     log_dir = 'logs/000/'
-    #classes_path = 'model_data/voc_classes.txt'
     classes_path = 'model_data/openimgs_classes.txt'
     anchors_path = 'model_data/yolo_anchors.txt'
     class_names = get_classes(classes_path)
@@ -34,14 +32,6 @@ def _main():
 
     input_shape = (416,416) # multiple of 32, hw
 
-    #is_tiny_version = len(anchors)==6 # default setting
-    #if is_tiny_version:
-    #    model = create_tiny_model(input_shape, anchors, num_classes,
-    #        freeze_body=2, weights_path='model_data/tiny_yolo_weights.h5')
-    #else:
-    #    model = create_model(input_shape, anchors, num_classes,
-    #        freeze_body=2, weights_path='model_data/yolo_weights.h5') # make sure you know what you freeze
-
     if USE_DARKNET53:
         model = create_model(input_shape, anchors, num_classes,
             freeze_body=2, weights_path='model_data/darknet53_weights.h5')
@@ -49,9 +39,6 @@ def _main():
         # otherwise use the default yolov3 weights
         model = create_model(input_shape, anchors, num_classes,
             freeze_body=2, weights_path='model_data/yolo_weights.h5')
-
-    if NUM_GPU >= 2:
-        model = multi_gpu_model(model, NUM_GPU)
 
     logging = TensorBoard(log_dir=log_dir)
     checkpoint = ModelCheckpoint(log_dir + 'ep{epoch:03d}-loss{loss:.3f}-val_loss{val_loss:.3f}.h5',
@@ -76,7 +63,7 @@ def _main():
             # use custom yolo_loss Lambda layer.
             'yolo_loss': lambda y_true, y_pred: y_pred})
 
-        batch_size = int(BATCH_SIZE_1 / NUM_GPU)
+        batch_size = int(BATCH_SIZE_1)
         print('Train on {} samples, val on {} samples, with batch size {}.'.format(num_train, num_val, batch_size))
         model.fit_generator(data_generator_wrapper(lines[:num_train], batch_size, input_shape, anchors, num_classes),
                 steps_per_epoch=max(1, num_train//batch_size),
@@ -95,7 +82,7 @@ def _main():
         model.compile(optimizer=Adam(lr=1e-4), loss={'yolo_loss': lambda y_true, y_pred: y_pred}) # recompile to apply the change
         print('Unfreeze all of the layers.')
 
-        batch_size = int(BATCH_SIZE_2 / NUM_GPU) # note that more GPU memory is required after unfreezing the body
+        batch_size = int(BATCH_SIZE_2) # note that more GPU memory is required after unfreezing the body
         print('Train on {} samples, val on {} samples, with batch size {}.'.format(num_train, num_val, batch_size))
         model.fit_generator(data_generator_wrapper(lines[:num_train], batch_size, input_shape, anchors, num_classes),
             steps_per_epoch=max(1, num_train//batch_size),
@@ -104,8 +91,7 @@ def _main():
             epochs=STAGE2_EPOCHS,
             initial_epoch=STAGE1_EPOCHS,
             callbacks=[logging, checkpoint, reduce_lr, early_stopping])
-        model.save_weights(log_dir + 'trained_weights_final.h5')
-        model.save(log_dir + 'trained_model_final.h5')
+        model.save_weights(log_dir + 'trained_weights_stage_2.h5')
 
     # Further training if needed.
 
