@@ -12,12 +12,20 @@ from keras.callbacks import TensorBoard, ModelCheckpoint, ReduceLROnPlateau, Ear
 from yolo3.model import preprocess_true_boxes, yolo_body, tiny_yolo_body, yolo_loss
 from yolo3.utils import get_random_data
 
+parser = argparse.ArgumentParser(description="Command Line Tool to Train YOLOv3")
 
-def _main():
-    annotation_path = 'train.txt'
-    log_dir = 'logs/000/'
-    classes_path = 'model_data/voc_classes.txt'
-    anchors_path = 'model_data/yolo_anchors.txt'
+parser.add_argument('--annotation', default='train.txt', help='Path to .txt Annotation File', type=str)
+parser.add_argument('--log_dir', default='logs/000/', help='Path to Log the TensorBoard and Save Model', type=str)
+parser.add_argument('--class_path', default='model_data/voc_classes.txt', help='Path to Classes File', type=str)
+parser.add_argument('--anchor_path', default='model_data/yolo_anchors.txt', help='Path to Anchors File', type=str)
+parser.add_argument('--batch_size', default=64, help='Batch Size', type=int)
+
+
+def _main(args):
+    annotation_path = args.annotaion
+    log_dir = args.log_dir
+    classes_path = args.class_path
+    anchors_path = args.anchor_path
     class_names = get_classes(classes_path)
     num_classes = len(class_names)
     anchors = get_anchors(anchors_path)
@@ -54,7 +62,7 @@ def _main():
             # use custom yolo_loss Lambda layer.
             'yolo_loss': lambda y_true, y_pred: y_pred})
 
-        batch_size = 32
+        batch_size = args.batch_size
         print('Train on {} samples, val on {} samples, with batch size {}.'.format(num_train, num_val, batch_size))
         model.fit_generator(data_generator_wrapper(lines[:num_train], batch_size, input_shape, anchors, num_classes),
                 steps_per_epoch=max(1, num_train//batch_size),
@@ -187,4 +195,5 @@ def data_generator_wrapper(annotation_lines, batch_size, input_shape, anchors, n
     return data_generator(annotation_lines, batch_size, input_shape, anchors, num_classes)
 
 if __name__ == '__main__':
-    _main()
+    args = parser.parse_args()
+    _main(args)
