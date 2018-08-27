@@ -21,7 +21,7 @@ def detect_img(yolo):
 
 
 if __name__ == '__main__':
-    # class YOLO defines the default value, so suppress any default here
+    # class YOLO defines the default value, so suppress any default HERE
     parser = argparse.ArgumentParser(argument_default=argparse.SUPPRESS)
     '''
     Command line options

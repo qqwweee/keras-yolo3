@@ -7,7 +7,7 @@
 
 ## Introduction
 
-A Keras implementation of YOLOv3 (Tensorflow backend) inspired by [allanzelener/YAD2K](https://github.com/allanzelener/YAD2K).
+A [Keras](https://keras.io/) implementation of YOLOv3 ([Tensorflow backend](https://www.tensorflow.org/)) inspired by [allanzelener/YAD2K](https://github.com/allanzelener/YAD2K).
 
 
 ---
@@ -19,7 +19,7 @@ A Keras implementation of YOLOv3 (Tensorflow backend) inspired by [allanzelener/
 3. Run YOLO detection.
 
 ```bash
-wget https://pjreddie.com/media/files/yolov3.weights
+wget https://pjreddie.com/media/files/yolov3.weights -o model_data/yolov3.weights  --progress=bar:force:noscroll
 python convert.py yolov3.cfg yolov3.weights model_data/yolo.h5
 python yolo_video.py [OPTIONS...] --image, for image detection mode, OR
 python yolo_video.py [video_path] [output_path (optional)]
@@ -84,10 +84,7 @@ If you want to use original pretrained weights for YOLOv3:
 
 ## Some issues to know
 
-1. The test environment is
-    - Python 3.5.2
-    - Keras 2.1.5
-    - tensorflow 1.6.0
+1. The test environment is Python 3.5.2 ; Keras 2.1.5 ; tensorflow 1.6.0
 
 2. Default anchors are used. If you use your own anchors, probably some changes are needed.
 

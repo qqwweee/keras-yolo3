@@ -33,12 +33,21 @@ def letterbox_image(image, size):
     return new_image
 
 
-def rand(a=0, b=1):
-    return np.random.rand() * (b - a) + a
+def rand(low=0, high=1):
+    """ random number in given range
+
+    :param float low:
+    :param float high:
+    :return float:
+
+    >>> 0 <= rand() <= 1
+    True
+    """
+    return np.random.rand() * (high - low) + low
 
 
-def get_random_data(annotation_line, input_shape, random=True, max_boxes=20, jitter=.3, hue=.1, sat=1.5, val=1.5,
-                    proc_img=True):
+def get_random_data(annotation_line, input_shape, random=True, max_boxes=20,
+                    jitter=.3, hue=.1, sat=1.5, val=1.5, proc_img=True):
     '''random preprocessing for real-time data augmentation'''
     line = annotation_line.split()
     image = Image.open(line[0])
@@ -64,7 +73,8 @@ def get_random_data(annotation_line, input_shape, random=True, max_boxes=20, jit
         box_data = np.zeros((max_boxes, 5))
         if len(box) > 0:
             np.random.shuffle(box)
-            if len(box) > max_boxes: box = box[:max_boxes]
+            if len(box) > max_boxes:
+                box = box[:max_boxes]
             box[:, [0, 2]] = box[:, [0, 2]] * scale + dx
             box[:, [1, 3]] = box[:, [1, 3]] * scale + dy
             box_data[:len(box)] = box
@@ -91,7 +101,8 @@ def get_random_data(annotation_line, input_shape, random=True, max_boxes=20, jit
 
     # flip image or not
     flip = rand() < .5
-    if flip: image = image.transpose(Image.FLIP_LEFT_RIGHT)
+    if flip:
+        image = image.transpose(Image.FLIP_LEFT_RIGHT)
 
     # distort image
     hue = rand(-hue, hue)
@@ -113,14 +124,16 @@ def get_random_data(annotation_line, input_shape, random=True, max_boxes=20, jit
         np.random.shuffle(box)
         box[:, [0, 2]] = box[:, [0, 2]] * nw / iw + dx
         box[:, [1, 3]] = box[:, [1, 3]] * nh / ih + dy
-        if flip: box[:, [0, 2]] = w - box[:, [2, 0]]
+        if flip:
+            box[:, [0, 2]] = w - box[:, [2, 0]]
         box[:, 0:2][box[:, 0:2] < 0] = 0
         box[:, 2][box[:, 2] > w] = w
         box[:, 3][box[:, 3] > h] = h
         box_w = box[:, 2] - box[:, 0]
         box_h = box[:, 3] - box[:, 1]
         box = box[np.logical_and(box_w > 1, box_h > 1)]  # discard invalid box
-        if len(box) > max_boxes: box = box[:max_boxes]
+        if len(box) > max_boxes:
+            box = box[:max_boxes]
         box_data[:len(box)] = box
 
     return image_data, box_data
