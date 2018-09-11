@@ -36,7 +36,7 @@ def create_or_open_db(db_file):
         sql2 = "create table if not exists CLASSES( ID_CLASS INTEGER PRIMARY KEY AUTOINCREMENT, CLASS TEXT, UNIQUE (CLASS) ON CONFLICT ABORT);" #CLASS TEXT, UNIQUE (CLASS) ON CONFLICT IGNORE
         conn.execute(sql2) # shortcut for conn.cursor().execute(sql)
         sql3 = '''create table if not exists CHILD_PICTURES( PICTURES_ID INTEGER, CLASSES_ID_CLASS INTEGER,
-        PERCENT REAL, CHILD_PICTURE BLOB, FOREIGN KEY(PICTURES_ID) REFERENCES PICTURES(ID) ON UPDATE CASCADE ON DELETE CASCADE,
+        PERCENT REAL, CHILD_PICTURE BLOB, FACE_ID TEXT, FACE_ACCURACY REAL, FOREIGN KEY(PICTURES_ID) REFERENCES PICTURES(ID) ON UPDATE CASCADE ON DELETE CASCADE,
         FOREIGN KEY(CLASSES_ID_CLASS) REFERENCES CLASSES(ID_CLASS) ON UPDATE CASCADE ON DELETE CASCADE);'''
         conn.execute(sql3) # shortcut for conn.cursor().execute(sql)
     else:
@@ -69,7 +69,6 @@ def insert_picture(conn, picture_file):
 #Удаление записи по id table PICTURES
 def delete_picture(conn, picture_id):
     try:
-
         sql = "DELETE FROM PICTURES WHERE id = :id"
         param = {'id': picture_id}
 
@@ -92,7 +91,7 @@ def extract_picture(cursor, picture_file, picture_id):
     #os.path.exists(path) - возвращает True, если path указывает на существующий путь или дескриптор открытого файла
     if os.path.exists(pic):
         if os.path.isdir(pic):
-            pic = pic + "/frame_" + str(picture_id) + ".png"
+            pic = pic + "/frame_" + str(picture_id) + ".jpeg"
             print("Extract picture completed successfully")
         else:
             print("Directory not found")
@@ -149,30 +148,32 @@ def child_extract_picture(cursor, picture_file_child, picture_id):
         return 1
 #TODO: доделать всё ниже    
     else:
-        records = cursor.fetchall()
-        if records != None:
-            for record in records:
-                rowid, ablob, PERCENT, CLASSES_ID_CLASS, *_ = record
+        return cursor.fetchall()
 
-                #os.path.exists(path) - возвращает True, если path указывает на существующий путь или дескриптор открытого файла
-                if os.path.exists(pic_child):
-                    if os.path.isdir(pic_child):
-                        el_pic_child = pic_child + "/frame_" + str(picture_id) + "(" + str(rowid) + ")" + "_class_" + str(CLASSES_ID_CLASS) + "_" + str(PERCENT) + ".png"
-                        with open(el_pic_child, 'wb') as child_output_file:
-                            child_output_file.write(base64.b64decode(ablob))
-                            print("Extract picture_child completed successfully")
-                    else:
-                        print("Directory not found")
-                        return 1
-                else:
-                    print("Path incorrect")
-                    return 1
-        else:
-            print("Error id not found")
-            return 1
+        # if records != None:
+        #     for record in records:
+        #         rowid, ablob, PERCENT, CLASSES_ID_CLASS, *_ = record
+
+        #         #os.path.exists(path) - возвращает True, если path указывает на существующий путь или дескриптор открытого файла
+        #         if os.path.exists(pic_child):
+        #             if os.path.isdir(pic_child):
+        #                 print(CLASSES_ID_CLASS)
+        #                 el_pic_child = pic_child + "/frame_" + str(picture_id) + "(" + str(rowid) + ")" + "_class_" + str(CLASSES_ID_CLASS) + "_" + str(PERCENT) + ".png"
+        #                 with open(el_pic_child, 'wb') as child_output_file:
+        #                     child_output_file.write(base64.b64decode(ablob))
+        #                     print("Extract picture_child completed successfully")
+        #             else:
+        #                 print("Directory not found")
+        #                 return 1
+        #         else:
+        #             print("Path incorrect")
+        #             return 1
+        # else:
+        #     print("Error id not found")
+        #     return 1
 
 #Вставить (изображение) в базу данных table CHILD_PICTURES
-def child_insert_picture(conn, class_name, percent, picture_file_child):
+def child_insert_picture(conn, class_name, percent, picture_file_child, face_id='', face_accuracy=0):
     try:
         #чтение в двоичном режим
         with io.BytesIO(picture_file_child) as input_file:
@@ -182,9 +183,9 @@ def child_insert_picture(conn, class_name, percent, picture_file_child):
         print('Ошибка:\n', traceback.format_exc())
     else:
         sql = '''INSERT INTO CHILD_PICTURES
-        (PICTURES_ID, CLASSES_ID_CLASS, PERCENT, CHILD_PICTURE) 
-        VALUES((SELECT ID FROM PICTURES ORDER BY ID DESC LIMIT 1), (SELECT ID_CLASS FROM CLASSES WHERE ?=CLASSES.CLASS), ?, ?)'''
-        conn.execute(sql,[class_name, percent, sqlite3.Binary(ablob)])
+        (PICTURES_ID, CLASSES_ID_CLASS, PERCENT, CHILD_PICTURE, FACE_ID, FACE_ACCURACY) 
+        VALUES((SELECT ID FROM PICTURES ORDER BY ID DESC LIMIT 1), (SELECT ID_CLASS FROM CLASSES WHERE ?=CLASSES.CLASS), ?, ?, ?, ?)'''
+        conn.execute(sql,[class_name, percent, sqlite3.Binary(ablob), face_id, face_accuracy])
         conn.commit()
         print('The image was obtained (child)\n')
 
@@ -205,17 +206,17 @@ def add_record(db_name, picture_file):
 
     #Закрываем базу данных
     conn.close()
-    
+
 
 #Добавление новой записи table CHILD_PICTURES
 #Принимает имя базы данных(база данных там же, где этот файл) и путь к картинке
-def add_record_child(db_name, class_name, percent, picture_file_child):
+def add_record_child(db_name, class_name, percent, picture_file_child, face_id='', face_accuracy=0):
 
     #Открываем базу данных
     conn = create_or_open_db(db_name)
 
     #Добавляем новую запись	
-    child_insert_picture(conn, class_name, percent, picture_file_child)
+    child_insert_picture(conn, class_name, percent, picture_file_child, face_id, face_accuracy)
 
     #Закрываем базу данных
     conn.close()
@@ -246,9 +247,10 @@ def extr_record(db_name, picture_file, id_record):
 def child_extr_record(db_name, picture_file_child, id_record):
     conn = create_or_open_db(db_name)
     cur = conn.cursor()
-    child_extract_picture(cur, picture_file_child, id_record)
+    result = child_extract_picture(cur, picture_file_child, id_record)
     cur.close()
     conn.close()
+    return result
 
 #Удаление всех записей из базы данных
 def del_all(db_name):
@@ -278,11 +280,86 @@ def add_record_class(db_name, class_name):
     conn.close()
 
 #Examples
-#db = 'test.db'
-#add_record( db, 'yellow.jpg')
-#del_all(db)
-#del_record(db, 2)
-#extr_record('tatoo.db', 'pic1.png', 1)
+db = 'test.db'
+
+# del_all(db)
+
+
+# from urllib.parse import urlencode
+# from urllib.request import Request, urlopen
+
+# url = 'https://api.evision.tech/predict/2.0' # Set destination URL here
+# post_fields = {
+#   "key": "",
+#   "minAccuracy": 30,
+#   "type": "check",
+#   "headers": {
+#     'Content-Type': "application/json"
+#   },
+#   "image": ""
+# }
+
+# request = Request(url, urlencode(post_fields).encode())
+# json = urlopen(request).read().decode()
+# print(json)
+
+
+
+# # Запрос в бд изображения
+# result = child_extr_record(db, './img_from_bd', 8)
+
+# # print(result)
+
+# if result != None:
+#     for record in result:
+#         rowid, ablob, PERCENT, CLASSES_ID_CLASS, *_ = record
+#         # print(ablob)
+#         # child_output_file.write(base64.b64decode(ablob))
+#         if CLASSES_ID_CLASS == 'person':
+#             from urllib.parse import urlencode
+#             from urllib.request import Request, urlopen
+
+#             url = 'https://api.evision.tech/predict/2.0' # Set destination URL here
+#             post_fields = {
+#                 "key": "",
+#                 "minAccuracy": 1,
+#                 "type": "check",
+#                 "headers": {
+#                     'Content-Type': "application/json"
+#                 },
+#                 "image": "data:image/jpeg;base64," + str(ablob)[2:]
+#             }
+
+#             # print(str(ablob)[2:100])
+#             print(post_fields['image'][0:100])
+
+#             # print(post_fields)
+
+#             request = Request(url, urlencode(post_fields).encode())
+#             json = urlopen(request).read().decode()
+#             print(json)
+
+
+
+
+
+            # print(ablob)
+            # print(ablob)
+        # print(PERCENT)
+        
+        # print(ablob)
+        # print(ablob)
+        # print(ablob)
+
+# print( cursor )
+
+
+
+# print(test_data)
+# del_all(db)
+# add_record(db, 'test_image.jpeg')
+# del_record(db, 2)
+# extr_record('tatoo.db', 'pic1.png', 1)
 
 #db = 'test.db'
 #extr_record(db, './qwerty/FRAME/', 4)

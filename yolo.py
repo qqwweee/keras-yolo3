@@ -26,6 +26,10 @@ from io import StringIO #add
 from io import BytesIO #add
 import io, base64 #add
 
+import json
+from urllib.parse import urlencode
+from urllib.request import Request, urlopen
+
 class YOLO(object):
     def __init__(self):
         self.model_path = 'model_data/yolo.h5' # model path or trained weights path
@@ -45,6 +49,11 @@ class YOLO(object):
 
         try:
             os.makedirs(self.images_path)
+        except OSError as e:
+            if e.errno != errno.EEXIST:
+                raise
+
+        try:
             os.makedirs(self.frames_path)
         except OSError as e:
             if e.errno != errno.EEXIST:
@@ -140,7 +149,7 @@ class YOLO(object):
         db = 'test.db' 
 
         outputBuffer = BytesIO()
-        image.save(outputBuffer, format='PNG')
+        image.save(outputBuffer, format='JPEG')
         imageBase64Data = outputBuffer.getvalue()
         data = base64.b64encode(imageBase64Data)
         outputBuffer.close
@@ -186,16 +195,50 @@ class YOLO(object):
             def save_object():
                 area = (left, top, right, bottom)
                 cropped_image = image.crop(area)
-                cropped_image.save(self.object_path + class_object + '/frame_' + str(self.counter_image) + '_' + label + '.png')
+                cropped_image.save(self.object_path + class_object + '/frame_' + str(self.counter_image) + '_' + label + '.jpeg')
 
                 outputBuffer = BytesIO()
-                cropped_image.save(outputBuffer, format='PNG')
+                cropped_image.save(outputBuffer, format='JPEG')
                 imageBase64Data = outputBuffer.getvalue()
                 data = base64.b64encode(imageBase64Data)
                 outputBuffer.close
                 edit_score = '{:.2f}'.format(score)
-                sql.add_record_class(db, predicted_class)
-                sql.add_record_child(db, predicted_class, edit_score, data)
+
+                face_id = '';
+                face_accuracy = 0;
+                
+
+                # Face ID request
+                if label.count('person'):
+                    url = 'https://api.evision.tech/predict/2.0' # Set destination URL here
+                    post_fields = {
+                        "key": "",
+                        "minAccuracy": 30,
+                        "type": "check",
+                        "headers": {
+                            'Content-Type': "application/json"
+                        },
+                        "image": "data:image/jpeg;base64," + str(data)[2:]
+                    }
+
+                    request = Request(url, urlencode(post_fields).encode())
+                    resultRequest = json.loads(urlopen(request).read().decode())
+                    print(resultRequest)
+
+                    sql.add_record_class(db, predicted_class)
+
+                    if ( resultRequest and resultRequest['success'] 
+                        and resultRequest['data'] and len(resultRequest['data']) 
+                        and resultRequest['data'][0] and resultRequest['data'][0]['id']
+                        and resultRequest['data'][0]['accuracy'] ):
+                        face_id = resultRequest['data'][0]['id']
+                        face_accuracy = resultRequest['data'][0]['accuracy']
+
+                        # print('face_accuracy = ', face_accuracy)
+                        sql.add_record_child(db, predicted_class, edit_score, data, face_id, face_accuracy)
+                    
+
+
 
                 #sql.child_extr_record(db, './output', 1)
 
@@ -215,7 +258,7 @@ class YOLO(object):
         history.close()
         end = timer()
         print(end - start)
-        image.save(self.frames_path + str(self.counter_image) + '.png')
+        image.save(self.frames_path + str(self.counter_image) + '.jpeg')
 
         self.counter_image+=1
 
@@ -292,3 +335,37 @@ def detect_img(yolo):
 
 if __name__ == '__main__':
     detect_img(YOLO())
+
+# Запрос в бд изображения
+# result = child_extr_record(db, './img_from_bd', 8)
+
+# # print(result)
+
+# if result != None:
+#     for record in result:
+#         rowid, ablob, PERCENT, CLASSES_ID_CLASS, *_ = record
+#         # print(ablob)
+#         # child_output_file.write(base64.b64decode(ablob))
+#         if CLASSES_ID_CLASS == 'person':
+#             from urllib.parse import urlencode
+#             from urllib.request import Request, urlopen
+
+#             url = 'https://api.evision.tech/predict/2.0' # Set destination URL here
+#             post_fields = {
+#                 "key": "",
+#                 "minAccuracy": 1,
+#                 "type": "check",
+#                 "headers": {
+#                     'Content-Type': "application/json"
+#                 },
+#                 "image": "data:image/jpeg;base64," + str(ablob)[2:]
+#             }
+
+#             # print(str(ablob)[2:100])
+#             print(post_fields['image'][0:100])
+
+#             # print(post_fields)
+
+#             request = Request(url, urlencode(post_fields).encode())
+#             json = urlopen(request).read().decode()
+#             print(json)
