@@ -10,7 +10,7 @@ from keras.models import Model
 from keras.optimizers import Adam
 from keras.callbacks import TensorBoard, ModelCheckpoint, ReduceLROnPlateau, EarlyStopping
 
-from yolo3.model import preprocess_true_boxes, yolo_body, tiny_yolo_body, yolo_loss
+from yolo3.model import preprocess_true_boxes, yolo_body, yolo_loss
 from yolo3.utils import get_random_data
 
 
@@ -24,10 +24,10 @@ def _main():
     anchors = get_anchors(anchors_path)
 
     input_shape = (416, 416)  # multiple of 32, hw
-
+    # make sure you know what you freeze
     model, bottleneck_model, last_layer_model = create_model(input_shape, anchors, num_classes,
                                                              freeze_body=2,
-                                                             weights_path='model_data/yolo_weights.h5')  # make sure you know what you freeze
+                                                             weights_path='model_data/yolo_weights.h5')
 
     logging = TensorBoard(log_dir=log_dir)
     checkpoint = ModelCheckpoint(log_dir + 'ep{epoch:03d}-loss{loss:.3f}-val_loss{val_loss:.3f}.h5',
@@ -118,7 +118,7 @@ def _main():
 
 
 def get_classes(classes_path):
-    '''loads the classes'''
+    """loads the classes"""
     with open(classes_path) as f:
         class_names = f.readlines()
     class_names = [c.strip() for c in class_names]
@@ -126,7 +126,7 @@ def get_classes(classes_path):
 
 
 def get_anchors(anchors_path):
-    '''loads the anchors from a file'''
+    """loads the anchors from a file"""
     with open(anchors_path) as f:
         anchors = f.readline()
     anchors = [float(x) for x in anchors.split(',')]
@@ -135,14 +135,17 @@ def get_anchors(anchors_path):
 
 def create_model(input_shape, anchors, num_classes, load_pretrained=True, freeze_body=2,
                  weights_path='model_data/yolo_weights.h5'):
-    '''create the training model'''
+    """create the training model"""
     K.clear_session()  # get a new session
     image_input = Input(shape=(None, None, 3))
     h, w = input_shape
     num_anchors = len(anchors)
 
-    y_true = [Input(shape=(h // {0: 32, 1: 16, 2: 8}[l], w // {0: 32, 1: 16, 2: 8}[l], \
-                           num_anchors // 3, num_classes + 5)) for l in range(3)]
+    y_true = [Input(shape=(h // {0: 32, 1: 16, 2: 8}[l],
+                           w // {0: 32, 1: 16, 2: 8}[l],
+                           num_anchors // 3,
+                           num_classes + 5))
+              for l in range(3)]
 
     model_body = yolo_body(image_input, num_anchors // 3, num_classes)
     print('Create YOLOv3 model with {} anchors and {} classes.'.format(num_anchors, num_classes))
@@ -153,8 +156,10 @@ def create_model(input_shape, anchors, num_classes, load_pretrained=True, freeze
         if freeze_body in [1, 2]:
             # Freeze darknet53 body or freeze all but 3 output layers.
             num = (185, len(model_body.layers) - 3)[freeze_body - 1]
-            for i in range(num): model_body.layers[i].trainable = False
-            print('Freeze the first {} layers of total {} layers.'.format(num, len(model_body.layers)))
+            for i in range(num):
+                model_body.layers[i].trainable = False
+            print('Freeze the first {} layers of total {} layers.'
+                  .format(num, len(model_body.layers)))
 
     # get output of second last layers and create bottleneck model of it
     out1 = model_body.layers[246].output
@@ -184,7 +189,7 @@ def create_model(input_shape, anchors, num_classes, load_pretrained=True, freeze
 
 
 def data_generator(annotation_lines, batch_size, input_shape, anchors, num_classes, random=True, verbose=False):
-    '''data generator for fit_generator'''
+    """data generator for fit_generator"""
     n = len(annotation_lines)
     i = 0
     while True:
@@ -205,10 +210,13 @@ def data_generator(annotation_lines, batch_size, input_shape, anchors, num_class
         yield [image_data, *y_true], np.zeros(batch_size)
 
 
-def data_generator_wrapper(annotation_lines, batch_size, input_shape, anchors, num_classes, random=True, verbose=False):
+def data_generator_wrapper(annotation_lines, batch_size, input_shape, anchors,
+                           num_classes, random=True, verbose=False):
     n = len(annotation_lines)
-    if n == 0 or batch_size <= 0: return None
-    return data_generator(annotation_lines, batch_size, input_shape, anchors, num_classes, random, verbose)
+    if n == 0 or batch_size <= 0:
+        return None
+    return data_generator(annotation_lines, batch_size, input_shape, anchors,
+                          num_classes, random, verbose)
 
 
 def bottleneck_generator(annotation_lines, batch_size, input_shape, anchors, num_classes, bottlenecks):

@@ -2,6 +2,8 @@
 
 [![Build Status](https://travis-ci.com/Borda/keras-yolo3.svg?branch=master)](https://travis-ci.com/Borda/keras-yolo3)
 [![Build status](https://ci.appveyor.com/api/projects/status/24m00vife2wae7k0?svg=true)](https://ci.appveyor.com/project/Borda/keras-yolo3)
+[![CircleCI](https://circleci.com/gh/Borda/keras-yolo3.svg?style=svg)](https://circleci.com/gh/Borda/keras-yolo3)
+[![codecov](https://codecov.io/gh/Borda/keras-yolo3/branch/master/graph/badge.svg)](https://codecov.io/gh/Borda/keras-yolo3)
 [![Codacy Badge](https://api.codacy.com/project/badge/Grade/e03dbbb0f0fd48baa70f637456f1fe36)](https://www.codacy.com/project/Borda/keras-yolo3/dashboard?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=Borda/keras-yolo3&amp;utm_campaign=Badge_Grade_Dashboard)
 [![license](https://img.shields.io/github/license/mashape/apistatus.svg)](LICENSE)
 
@@ -15,15 +17,21 @@ A [Keras](https://keras.io/) implementation of YOLOv3 ([Tensorflow backend](http
 ## Quick Start
 
 1. Download YOLOv3 weights from [YOLO website](http://pjreddie.com/darknet/yolo/).
+    ```bash
+    wget -O model_data/yolov3.weights  https://pjreddie.com/media/files/yolov3.weights  --progress=bar:force:noscroll
+    ```
 2. Convert the Darknet YOLO model to a Keras model.
+    ```bash
+    python scripts/convert_weights.py \
+        --config_path model_data/yolov3.cfg \
+        --weights_path model_data/yolov3.weights \
+        --output_path model_data/yolo.h5
+    ```
 3. Run YOLO detection.
-
-```bash
-wget https://pjreddie.com/media/files/yolov3.weights -o model_data/yolov3.weights  --progress=bar:force:noscroll
-python convert.py yolov3.cfg yolov3.weights model_data/yolo.h5
-python yolo_video.py [OPTIONS...] --image, for image detection mode, OR
-python yolo_video.py [video_path] [output_path (optional)]
-```
+    ```bash
+    python yolo_video.py [OPTIONS... --image, for image detection mode, OR]
+    python yolo_video.py [video_path] [output_path <optional>]
+    ```
 
 For Tiny YOLOv3, just do in a similar way, just specify model path and anchor path with `--model model_file` and `--anchors anchor_file`.
 

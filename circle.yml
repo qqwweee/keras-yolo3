@@ -1,0 +1,46 @@
+version: 2.0
+
+jobs:
+  Py2:
+    docker:
+      - image: circleci/python:2.7
+    steps: &steps
+      - checkout
+      - run:
+          name: Install Packages
+          command: |
+            sudo apt-get update
+            sudo apt-get install pkg-config python-dev python-tk
+      - run:
+          name: Install PyPI dependences
+          command: |
+            pip install -r requirements.txt --user
+            sudo pip install coverage pytest pytest-cov codecov
+            python --version ; pip --version ; pwd ; ls
+      - run:
+          name: Testing
+          command: |
+            coverage run --source yolo3 -m py.test yolo3 scripts -v --doctest-modules --junitxml=test-reports/pytest_junit.xml
+            coverage report && coverage xml -o test-reports/coverage.xml
+            codecov
+      - run:
+          name: Sample run
+          command: |
+            wget -O model_data/yolov3-tiny.weights  https://pjreddie.com/media/files/yolov3-tiny.weights  --progress=bar:force:noscroll
+            python scripts/convert_weights.py --config_path model_data/yolov3-tiny.cfg --weights_path model_data/yolov3-tiny.weights --output_path model_data/yolov3-tiny.h5
+
+      - store_test_results:
+          path: test-reports
+      - store_artifacts:
+          path: test-reports
+
+  Py3:
+    docker:
+      - image: circleci/python:3.6
+    steps: *steps
+
+workflows:
+  version: 2
+  build:
+    jobs:
+      - Py3

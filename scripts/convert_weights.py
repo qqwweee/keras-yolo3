@@ -2,12 +2,18 @@
 """
 Reads Darknet config and weights and creates Keras model with TF backend.
 
+>> wget -O ../model_data/yolov3-tiny.weights  https://pjreddie.com/media/files/yolov3-tiny.weights  --progress=bar:force:noscroll
+>> python convert_weights.py \
+    --config_path ../model_data/yolov3-tiny.cfg \
+    --weights_path ../model_data/yolov3-tiny.weights \
+    --output_path ../model_data/yolov3-tiny.h5
+
 """
 
+import os
+import io
 import argparse
 import configparser
-import io
-import os
 from collections import defaultdict
 
 import numpy as np
@@ -20,26 +26,26 @@ from keras.models import Model
 from keras.regularizers import l2
 from keras.utils.vis_utils import plot_model as plot
 
-parser = argparse.ArgumentParser(description='Darknet To Keras Converter.')
-parser.add_argument('config_path', help='Path to Darknet cfg file.')
-parser.add_argument('weights_path', help='Path to Darknet weights file.')
-parser.add_argument('output_path', help='Path to output Keras model file.')
-parser.add_argument(
-    '-p',
-    '--plot_model',
-    help='Plot generated Keras model and save as image.',
-    action='store_true')
-parser.add_argument(
-    '-w',
-    '--weights_only',
-    help='Save as Keras weights file instead of model file.',
-    action='store_true')
+
+def parse_arguments():
+    parser = argparse.ArgumentParser(description='Darknet To Keras Converter.')
+    parser.add_argument('--config_path', type=str, help='Path to Darknet cfg file.')
+    parser.add_argument('--weights_path', type=str, help='Path to Darknet weights file.')
+    parser.add_argument('--output_path', type=str, help='Path to output Keras model file.')
+    parser.add_argument('-p', '--plot_model', action='store_true',
+                        help='Plot generated Keras model and save as image.')
+    parser.add_argument('-w', '--weights_only', action='store_true',
+                        help='Save as Keras weights file instead of model file.')
+    return parser.parse_args()
 
 
 def unique_config_sections(config_file):
     """Convert all config sections to have unique names.
 
-    Adds unique suffixes to config sections for compability with configparser.
+    Adds unique suffixes to config sections for capability with config parser.
+
+    :param str config_file:
+    :return:
     """
     section_counters = defaultdict(int)
     output_stream = io.StringIO()
@@ -59,14 +65,14 @@ def unique_config_sections(config_file):
 def _main(args):
     config_path = os.path.expanduser(args.config_path)
     weights_path = os.path.expanduser(args.weights_path)
-    assert config_path.endswith('.cfg'), '{} is not a .cfg file'.format(
-        config_path)
-    assert weights_path.endswith(
-        '.weights'), '{} is not a .weights file'.format(weights_path)
+    assert config_path.endswith('.cfg'), \
+        '{} is not a .cfg file'.format(config_path)
+    assert weights_path.endswith('.weights'), \
+        '{} is not a .weights file'.format(weights_path)
 
     output_path = os.path.expanduser(args.output_path)
-    assert output_path.endswith(
-        '.h5'), 'output path {} is not a .h5 file'.format(output_path)
+    assert output_path.endswith('.h5'), \
+        'output path {} is not a .h5 file'.format(output_path)
     output_root = os.path.splitext(output_path)[0]
 
     # Load weights and config.
@@ -75,9 +81,11 @@ def _main(args):
     major, minor, revision = np.ndarray(
         shape=(3,), dtype='int32', buffer=weights_file.read(12))
     if (major * 10 + minor) >= 2 and major < 1000 and minor < 1000:
-        seen = np.ndarray(shape=(1,), dtype='int64', buffer=weights_file.read(8))
+        seen = np.ndarray(shape=(1,), dtype='int64',
+                          buffer=weights_file.read(8))
     else:
-        seen = np.ndarray(shape=(1,), dtype='int32', buffer=weights_file.read(4))
+        seen = np.ndarray(shape=(1,), dtype='int32',
+                          buffer=weights_file.read(4))
     print('Weights Header: ', major, minor, revision, seen)
 
     print('Parsing Darknet config.')
@@ -115,20 +123,16 @@ def _main(args):
             darknet_w_shape = (filters, weights_shape[2], size, size)
             weights_size = np.product(weights_shape)
 
-            print('conv2d', 'bn'
-            if batch_normalize else '  ', activation, weights_shape)
+            s_bn = 'bn' if batch_normalize else '  '
+            print('conv2d', s_bn, activation, weights_shape)
 
-            conv_bias = np.ndarray(
-                shape=(filters,),
-                dtype='float32',
-                buffer=weights_file.read(filters * 4))
+            conv_bias = np.ndarray(shape=(filters,), dtype='float32',
+                                   buffer=weights_file.read(filters * 4))
             count += filters
 
             if batch_normalize:
-                bn_weights = np.ndarray(
-                    shape=(3, filters),
-                    dtype='float32',
-                    buffer=weights_file.read(filters * 12))
+                bn_weights = np.ndarray(shape=(3, filters), dtype='float32',
+                                        buffer=weights_file.read(filters * 12))
                 count += 3 * filters
 
                 bn_weight_list = [
@@ -138,10 +142,8 @@ def _main(args):
                     bn_weights[2]  # running var
                 ]
 
-            conv_weights = np.ndarray(
-                shape=darknet_w_shape,
-                dtype='float32',
-                buffer=weights_file.read(weights_size * 4))
+            conv_weights = np.ndarray(shape=darknet_w_shape, dtype='float32',
+                                      buffer=weights_file.read(weights_size * 4))
             count += weights_size
 
             # DarkNet conv_weights are serialized Caffe-style:
@@ -204,10 +206,8 @@ def _main(args):
             size = int(cfg_parser[section]['size'])
             stride = int(cfg_parser[section]['stride'])
             all_layers.append(
-                MaxPooling2D(
-                    pool_size=(size, size),
-                    strides=(stride, stride),
-                    padding='same')(prev_layer))
+                MaxPooling2D(pool_size=(size, size), strides=(stride, stride),
+                             padding='same')(prev_layer))
             prev_layer = all_layers[-1]
 
         elif section.startswith('shortcut'):
@@ -232,11 +232,12 @@ def _main(args):
             pass
 
         else:
-            raise ValueError(
-                'Unsupported section header type: {}'.format(section))
+            raise ValueError('Unsupported section header type: {}'
+                             .format(section))
 
     # Create and save model.
-    if len(out_index) == 0: out_index.append(len(all_layers) - 1)
+    if len(out_index) == 0:
+        out_index.append(len(all_layers) - 1)
     model = Model(inputs=input_layer, outputs=[all_layers[i] for i in out_index])
     print(model.summary())
     if args.weights_only:
@@ -260,4 +261,5 @@ def _main(args):
 
 
 if __name__ == '__main__':
-    _main(parser.parse_args())
+    params = parse_arguments()
+    _main(params)

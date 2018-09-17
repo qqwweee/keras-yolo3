@@ -20,7 +20,7 @@ def compose(*funcs):
 
 
 def letterbox_image(image, size):
-    '''resize image with unchanged aspect ratio using padding'''
+    """resize image with unchanged aspect ratio using padding"""
     iw, ih = image.size
     w, h = size
     scale = min(w / iw, h / ih)
@@ -48,7 +48,7 @@ def rand(low=0, high=1):
 
 def get_random_data(annotation_line, input_shape, random=True, max_boxes=20,
                     jitter=.3, hue=.1, sat=1.5, val=1.5, proc_img=True):
-    '''random preprocessing for real-time data augmentation'''
+    """random preprocessing for real-time data augmentation"""
     line = annotation_line.split()
     image = Image.open(line[0])
     iw, ih = image.size
