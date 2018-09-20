@@ -26,8 +26,14 @@ jobs:
       - run:
           name: Sample run
           command: |
-            wget -O model_data/yolov3-tiny.weights  https://pjreddie.com/media/files/yolov3-tiny.weights  --progress=bar:force:noscroll
-            python scripts/convert_weights.py --config_path model_data/yolov3-tiny.cfg --weights_path model_data/yolov3-tiny.weights --output_path model_data/yolov3-tiny.h5
+            wget -O model_data/tiny-yolo.weights  https://pjreddie.com/media/files/yolov3-tiny.weights  --progress=bar:force:noscroll
+            python scripts/convert_weights.py --config_path model_data/tiny-yolo.cfg --weights_path model_data/tiny-yolo.weights --output_path model_data/tiny-yolo.h5
+            mkdir results
+            wget -O ./results/dog.jpg https://raw.githubusercontent.com/pjreddie/darknet/master/data/dog.jpg
+            wget -O ./results/volleyball.mp4  https://d2v9y0dukr6mq2.cloudfront.net/video/preview/UnK3Qzg/crowds-of-poeple-hot-summer-day-at-wasaga-beach-ontario-canada-during-heatwave_n2t3d8trl__SB_PM.mp4
+            python scripts/predict.py --path_output ./results --path_image ./results/dog.jpg --path_video ./results/volleyball.mp4
+            ls -l results/*
+
 
       - store_test_results:
           path: test-reports

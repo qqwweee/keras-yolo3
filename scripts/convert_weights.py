@@ -1,18 +1,19 @@
-#! /usr/bin/env python
 """
 Reads Darknet config and weights and creates Keras model with TF backend.
 
->> wget -O ../model_data/yolov3-tiny.weights  https://pjreddie.com/media/files/yolov3-tiny.weights  --progress=bar:force:noscroll
+>> wget -O ../model_data/tiny-yolo.weights  https://pjreddie.com/media/files/tiny-yolo.weights  --progress=bar:force:noscroll
 >> python convert_weights.py \
-    --config_path ../model_data/yolov3-tiny.cfg \
-    --weights_path ../model_data/yolov3-tiny.weights \
-    --output_path ../model_data/yolov3-tiny.h5
+    --config_path ../model_data/tiny-yolo.cfg \
+    --weights_path ../model_data/tiny-yolo.weights \
+    --output_path ../model_data/tiny-yolo.h5
 
 """
 
 import os
+import sys
 import io
 import argparse
+import logging
 import configparser
 from collections import defaultdict
 
@@ -25,6 +26,9 @@ from keras.layers.normalization import BatchNormalization
 from keras.models import Model
 from keras.regularizers import l2
 from keras.utils.vis_utils import plot_model as plot
+
+sys.path += [os.path.abspath('.'), os.path.abspath('..')]
+from yolo3.utils import update_path
 
 
 def parse_arguments():
@@ -61,22 +65,115 @@ def unique_config_sections(config_file):
     return output_stream
 
 
+def parse_convolutional(all_layers, cfg_parser, section, prev_layer, weights_file, count, weight_decay):
+    filters = int(cfg_parser[section]['filters'])
+    size = int(cfg_parser[section]['size'])
+    stride = int(cfg_parser[section]['stride'])
+    pad = int(cfg_parser[section]['pad'])
+    activation = cfg_parser[section]['activation']
+    batch_normalize = 'batch_normalize' in cfg_parser[section]
+
+    padding = 'same' if pad == 1 and stride == 1 else 'valid'
+
+    # Setting weights.
+    # Darknet serializes convolutional weights as:
+    # [bias/beta, [gamma, mean, variance], conv_weights]
+    prev_layer_shape = K.int_shape(prev_layer)
+
+    weights_shape = (size, size, prev_layer_shape[-1], filters)
+    darknet_w_shape = (filters, weights_shape[2], size, size)
+    weights_size = np.product(weights_shape)
+
+    s_bn = 'bn' if batch_normalize else '  '
+    logging.info('conv2d: %s, %s, %s', s_bn, activation, repr(weights_shape))
+
+    conv_bias = np.ndarray(shape=(filters,), dtype='float32',
+                           buffer=weights_file.read(filters * 4))
+    count += filters
+
+    if batch_normalize:
+        bn_weights = np.ndarray(shape=(3, filters), dtype='float32',
+                                buffer=weights_file.read(filters * 12))
+        count += 3 * filters
+
+        bn_weight_list = [
+            bn_weights[0],  # scale gamma
+            conv_bias,  # shift beta
+            bn_weights[1],  # running mean
+            bn_weights[2]  # running var
+        ]
+
+    conv_weights = np.ndarray(shape=darknet_w_shape, dtype='float32',
+                              buffer=weights_file.read(weights_size * 4))
+    count += weights_size
+
+    # DarkNet conv_weights are serialized Caffe-style:
+    # (out_dim, in_dim, height, width)
+    # We would like to set these to Tensorflow order:
+    # (height, width, in_dim, out_dim)
+    conv_weights = np.transpose(conv_weights, [2, 3, 1, 0])
+    conv_weights = [conv_weights] if batch_normalize else [
+        conv_weights, conv_bias
+    ]
+
+    # Handle activation.
+    act_fn = None
+    if activation == 'leaky':
+        pass  # Add advanced activation later.
+    elif activation != 'linear':
+        raise ValueError('Unknown activation function `{}` in section {}'
+                         .format(activation, section))
+
+    # Create Conv2D layer
+    if stride > 1:
+        # Darknet uses left and top padding instead of 'same' mode
+        prev_layer = ZeroPadding2D(((1, 0), (1, 0)))(prev_layer)
+    conv_layer = (Conv2D(
+        filters, (size, size),
+        strides=(stride, stride),
+        kernel_regularizer=l2(weight_decay),
+        use_bias=not batch_normalize,
+        weights=conv_weights,
+        activation=act_fn,
+        padding=padding))(prev_layer)
+
+    if batch_normalize:
+        conv_layer = (BatchNormalization(
+            weights=bn_weight_list))(conv_layer)
+    prev_layer = conv_layer
+
+    if activation == 'linear':
+        all_layers.append(prev_layer)
+    elif activation == 'leaky':
+        act_layer = LeakyReLU(alpha=0.1)(prev_layer)
+        prev_layer = act_layer
+        all_layers.append(act_layer)
+
+    return all_layers, prev_layer, count
+
+
 # %%
 def _main(args):
-    config_path = os.path.expanduser(args.config_path)
-    weights_path = os.path.expanduser(args.weights_path)
-    assert config_path.endswith('.cfg'), \
-        '{} is not a .cfg file'.format(config_path)
-    assert weights_path.endswith('.weights'), \
-        '{} is not a .weights file'.format(weights_path)
+    config_path = update_path(args.config_path)
+    assert os.path.isfile(config_path), 'missing "%s"' % config_path
+    weights_path = update_path(args.weights_path)
+    assert os.path.isfile(weights_path), 'missing "%s"' % weights_path
 
-    output_path = os.path.expanduser(args.output_path)
+    assert config_path.endswith('.cfg'), \
+        '"%s" is not a .cfg file' % os.path.basename(config_path)
+    assert weights_path.endswith('.weights'), \
+        '"%s" is not a .weights file' % os.path.basename(config_path)
+
+    output_dir = os.path.dirname(args.output_path)
+    output_dir = update_path(output_dir) if output_dir else ''
+    assert (not output_dir or os.path.isdir(output_dir)), 'missing "%s"' % output_dir
+    output_path = os.path.join(output_dir, os.path.basename(args.output_path))
     assert output_path.endswith('.h5'), \
         'output path {} is not a .h5 file'.format(output_path)
     output_root = os.path.splitext(output_path)[0]
 
     # Load weights and config.
-    print('Loading weights.')
+    logging.info('Loading weights: %s', weights_path)
     weights_file = open(weights_path, 'rb')
     major, minor, revision = np.ndarray(
         shape=(3,), dtype='int32', buffer=weights_file.read(12))
@@ -86,14 +183,15 @@ def _main(args):
     else:
         seen = np.ndarray(shape=(1,), dtype='int32',
                           buffer=weights_file.read(4))
-    print('Weights Header: ', major, minor, revision, seen)
+    logging.info('Weights Header: %i.%i.%i %s',
+                 major, minor, revision, repr(seen.tolist()))
 
-    print('Parsing Darknet config.')
+    logging.info('Parsing Darknet config: %s', config_path)
     unique_config_file = unique_config_sections(config_path)
     cfg_parser = configparser.ConfigParser()
     cfg_parser.read_file(unique_config_file)
 
-    print('Creating Keras model.')
+    logging.info('Creating Keras model.')
     input_layer = Input(shape=(None, None, 3))
     prev_layer = input_layer
     all_layers = []
@@ -103,97 +201,16 @@ def _main(args):
     count = 0
     out_index = []
     for section in cfg_parser.sections():
-        print('Parsing section {}'.format(section))
+        logging.info('Parsing section "%s"', section)
         if section.startswith('convolutional'):
-            filters = int(cfg_parser[section]['filters'])
-            size = int(cfg_parser[section]['size'])
-            stride = int(cfg_parser[section]['stride'])
-            pad = int(cfg_parser[section]['pad'])
-            activation = cfg_parser[section]['activation']
-            batch_normalize = 'batch_normalize' in cfg_parser[section]
-
-            padding = 'same' if pad == 1 and stride == 1 else 'valid'
-
-            # Setting weights.
-            # Darknet serializes convolutional weights as:
-            # [bias/beta, [gamma, mean, variance], conv_weights]
-            prev_layer_shape = K.int_shape(prev_layer)
-
-            weights_shape = (size, size, prev_layer_shape[-1], filters)
-            darknet_w_shape = (filters, weights_shape[2], size, size)
-            weights_size = np.product(weights_shape)
-
-            s_bn = 'bn' if batch_normalize else '  '
-            print('conv2d', s_bn, activation, weights_shape)
-
-            conv_bias = np.ndarray(shape=(filters,), dtype='float32',
-                                   buffer=weights_file.read(filters * 4))
-            count += filters
-
-            if batch_normalize:
-                bn_weights = np.ndarray(shape=(3, filters), dtype='float32',
-                                        buffer=weights_file.read(filters * 12))
-                count += 3 * filters
-
-                bn_weight_list = [
-                    bn_weights[0],  # scale gamma
-                    conv_bias,  # shift beta
-                    bn_weights[1],  # running mean
-                    bn_weights[2]  # running var
-                ]
-
-            conv_weights = np.ndarray(shape=darknet_w_shape, dtype='float32',
-                                      buffer=weights_file.read(weights_size * 4))
-            count += weights_size
-
-            # DarkNet conv_weights are serialized Caffe-style:
-            # (out_dim, in_dim, height, width)
-            # We would like to set these to Tensorflow order:
-            # (height, width, in_dim, out_dim)
-            conv_weights = np.transpose(conv_weights, [2, 3, 1, 0])
-            conv_weights = [conv_weights] if batch_normalize else [
-                conv_weights, conv_bias
-            ]
-
-            # Handle activation.
-            act_fn = None
-            if activation == 'leaky':
-                pass  # Add advanced activation later.
-            elif activation != 'linear':
-                raise ValueError(
-                    'Unknown activation function `{}` in section {}'.format(
-                        activation, section))
-
-            # Create Conv2D layer
-            if stride > 1:
-                # Darknet uses left and top padding instead of 'same' mode
-                prev_layer = ZeroPadding2D(((1, 0), (1, 0)))(prev_layer)
-            conv_layer = (Conv2D(
-                filters, (size, size),
-                strides=(stride, stride),
-                kernel_regularizer=l2(weight_decay),
-                use_bias=not batch_normalize,
-                weights=conv_weights,
-                activation=act_fn,
-                padding=padding))(prev_layer)
-
-            if batch_normalize:
-                conv_layer = (BatchNormalization(
-                    weights=bn_weight_list))(conv_layer)
-            prev_layer = conv_layer
-
-            if activation == 'linear':
-                all_layers.append(prev_layer)
-            elif activation == 'leaky':
-                act_layer = LeakyReLU(alpha=0.1)(prev_layer)
-                prev_layer = act_layer
-                all_layers.append(act_layer)
+            all_layers, prev_layer, count = parse_convolutional(
+                all_layers, cfg_parser, section, prev_layer, weights_file, count, weight_decay)
 
         elif section.startswith('route'):
             ids = [int(i) for i in cfg_parser[section]['layers'].split(',')]
             layers = [all_layers[i] for i in ids]
             if len(layers) > 1:
-                print('Concatenating route layers:', layers)
+                logging.info('Concatenating route layers: %s', repr(layers))
                 concatenate_layer = Concatenate()(layers)
                 all_layers.append(concatenate_layer)
                 prev_layer = concatenate_layer
@@ -232,34 +249,35 @@ def _main(args):
             pass
 
         else:
-            raise ValueError('Unsupported section header type: {}'
-                             .format(section))
+            raise ValueError('Unsupported section header type: %s' % section)
 
     # Create and save model.
     if len(out_index) == 0:
         out_index.append(len(all_layers) - 1)
     model = Model(inputs=input_layer, outputs=[all_layers[i] for i in out_index])
-    print(model.summary())
+    logging.info(model.summary())
     if args.weights_only:
         model.save_weights('{}'.format(output_path))
-        print('Saved Keras weights to {}'.format(output_path))
+        logging.info('Saved Keras weights to "%s"', output_path)
     else:
         model.save('{}'.format(output_path))
-        print('Saved Keras model to {}'.format(output_path))
+        logging.info('Saved Keras model to "%s"', output_path)
 
     # Check to see if all weights have been read.
     remaining_weights = len(weights_file.read()) / 4
     weights_file.close()
-    print('Read {} of {} from Darknet weights.'.format(count, count +
-                                                       remaining_weights))
+    logging.info('Read %i of %i from Darknet weight.',
+                 count, count + remaining_weights)
     if remaining_weights > 0:
-        print('Warning: {} unused weights'.format(remaining_weights))
+        logging.warning('there are %i unused weights', remaining_weights)
 
     if args.plot_model:
         plot(model, to_file='{}.png'.format(output_root), show_shapes=True)
-        print('Saved model plot to {}.png'.format(output_root))
+        logging.info('Saved model plot to %s.png', output_root)
 
 
 if __name__ == '__main__':
+    logging.basicConfig(level=logging.DEBUG)
     params = parse_arguments()
     _main(params)
+    logging.info('DONE.')

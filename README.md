@@ -11,50 +11,55 @@
 
 A [Keras](https://keras.io/) implementation of YOLOv3 ([Tensorflow backend](https://www.tensorflow.org/)) inspired by [allanzelener/YAD2K](https://github.com/allanzelener/YAD2K).
 
-
 ---
 
 ## Quick Start
 
 1. Download YOLOv3 weights from [YOLO website](http://pjreddie.com/darknet/yolo/).
     ```bash
-    wget -O model_data/yolov3.weights  https://pjreddie.com/media/files/yolov3.weights  --progress=bar:force:noscroll
+    wget -O model_data/yolo.weights  https://pjreddie.com/media/files/yolov3.weights  --progress=bar:force:noscroll
     ```
 2. Convert the Darknet YOLO model to a Keras model.
     ```bash
-    python scripts/convert_weights.py \
-        --config_path model_data/yolov3.cfg \
-        --weights_path model_data/yolov3.weights \
+    python3 scripts/convert_weights.py \
+        --config_path model_data/yolo.cfg \
+        --weights_path model_data/yolo.weights \
         --output_path model_data/yolo.h5
     ```
 3. Run YOLO detection.
     ```bash
-    python yolo_video.py [OPTIONS... --image, for image detection mode, OR]
-    python yolo_video.py [video_path] [output_path <optional>]
+    python3 scripts/predict.py \
+       --path_output ./results \
+       --path_image dog.jpg \
+       --path_video person.mp4
     ```
 
-For Tiny YOLOv3, just do in a similar way, just specify model path and anchor path with `--model model_file` and `--anchors anchor_file`.
+For Full YOLOv3, just do in a similar way, just specify model path and anchor path with `--model model_file` and `--anchors anchor_file`.
 
 ### Usage
 Use --help to see usage of yolo_video.py:
 ```bash
-usage: yolo_video.py [-h] [--model MODEL] [--anchors ANCHORS]
-                     [--classes CLASSES] [--gpu_num GPU_NUM] [--image]
-                     [--input] [--output]
-
-positional arguments:
-  --input        Video input path
-  --output       Video output path
+usage: predict_interactive.py [-h] [--path_model PATH_MODEL]
+                              [--path_anchors PATH_ANCHORS]
+                              [--path_classes PATH_CLASSES]
+                              [--gpu_num GPU_NUM]
+                              [--path_output [PATH_OUTPUT]] [--image]
+                              [--video [VIDEO]
 
 optional arguments:
-  -h, --help         show this help message and exit
-  --model MODEL      path to model weight file, default model_data/yolo.h5
-  --anchors ANCHORS  path to anchor definitions, default
-                     model_data/yolo_anchors.txt
-  --classes CLASSES  path to class definitions, default
-                     model_data/coco_classes.txt
-  --gpu_num GPU_NUM  Number of GPU to use, default 1
-  --image            Image detection mode, will ignore all positional arguments
+  -h, --help            show this help message and exit
+  --path_model PATH_MODEL
+                        path to model weight file
+  --path_anchors PATH_ANCHORS
+                        path to anchor definitions
+  --path_classes PATH_CLASSES
+                        path to class definitions
+  --gpu_num GPU_NUM     Number of GPU to use
+  --path_output [PATH_OUTPUT]
+                        path to the output directory
+  --image               Image detection mode.
+  --video [VIDEO]       Video input path.
+
 ```
 ---
 
@@ -74,12 +79,11 @@ optional arguments:
     ...
     ```
 
-2. Make sure you have run `python convert.py -w yolov3.cfg yolov3.weights model_data/yolo_weights.h5`  
+2. Make sure you have run `python scripts/convert_weights.py <...>`  
     The file model_data/yolo_weights.h5 is used to load pretrained weights.
 
-3. Modify train.py and start training.  
-    `python train.py`  
-    Use your trained weights or checkpoint weights with command line option `--model model_file` when using yolo_video.py
+3. Modify train.py and start training.  `python train.py`
+    Use your trained weights or checkpoint weights with command line option `--model model_file` when using `yolo_interactive.py`
     Remember to modify class path or anchor path, with `--classes class_file` and `--anchors anchor_file`.
 
 If you want to use original pretrained weights for YOLOv3:  
@@ -93,15 +97,9 @@ If you want to use original pretrained weights for YOLOv3:
 ## Some issues to know
 
 1. The test environment is Python 3.5.2 ; Keras 2.1.5 ; tensorflow 1.6.0
-
 2. Default anchors are used. If you use your own anchors, probably some changes are needed.
-
 3. The inference result is not totally the same as Darknet but the difference is small.
-
 4. The speed is slower than Darknet. Replacing PIL with opencv may help a little.
-
 5. Always load pretrained weights and freeze layers in the first stage of training. Or try Darknet training. It's OK if there is a mismatch warning.
-
-6. The training strategy is for reference only. Adjust it according to your dataset and your goal. And add further strategy if needed.
-
-7. For speeding up the training process with frozen layers train_bottleneck.py can be used. It will compute the bottleneck features of the frozen model first and then only trains the last layers. This makes training on CPU possible in a reasonable time. See [this](https://blog.keras.io/building-powerful-image-classification-models-using-very-little-data.html) for more information on bottleneck features.
+6. The training strategy is for reference only. Adjust it according to your dataset and your goal. and add further strategy if needed.
+7. For speeding up the training process with frozen layers train_bottleneck.py can be used. It will compute the bottleneck features of the frozen model first and then only trains the last layers. This makes training on CPU possible in a reasonable time. See this [post](https://blog.keras.io/building-powerful-image-classification-models-using-very-little-data.html) for more information on bottleneck features.

@@ -1,10 +1,37 @@
 """Miscellaneous utility functions."""
 
+import os
 from functools import reduce
 
 from PIL import Image
 import numpy as np
 from matplotlib.colors import rgb_to_hsv, hsv_to_rgb
+
+
+def update_path(my_path, max_depth=5, abs_path=True):
+    """ update path as bobble up strategy
+
+    :param str my_path:
+    :param int max_depth:
+    :param bool abs_path:
+    :return:
+
+    >>> os.path.isdir(update_path('model_data'))
+    True
+    """
+    if not my_path or my_path.startswith('/'):
+        return my_path
+    elif my_path.startswith('~'):
+        return os.path.expanduser(my_path)
+
+    for _ in range(max_depth):
+        if os.path.exists(my_path):
+            break
+        my_path = os.path.join('..', my_path)
+
+    if abs_path:
+        my_path = os.path.abspath(my_path)
+    return my_path
 
 
 def compose(*funcs):
