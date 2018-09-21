@@ -14,6 +14,7 @@ from setuptools import setup, find_packages
 # Python 3 only projects can skip this import
 from io import open
 
+
 # Arguments marked as "Required" below must be included for upload to PyPI.
 # Fields marked as "Optional" may be commented out.
 def _parse_requirements(file_path):

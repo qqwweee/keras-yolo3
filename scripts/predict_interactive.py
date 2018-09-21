@@ -85,10 +85,10 @@ if __name__ == '__main__':
         logging.info('Image detection mode')
         if hasattr(arg_params, 'video'):
             logging.warning('Ignoring remaining command line arguments: %s , %s',
-                            arg_params.video, arg_params.output)
+                            arg_params.video, arg_params.path_output)
         detect_img(yolo)
     elif hasattr(arg_params, 'video'):
-        detect_video(yolo, arg_params.video, arg_params.output)
+        detect_video(yolo, arg_params.video, arg_params.path_output)
     else:
         logging.info('Must specify at least video_input_path.  See usage with --help.')
 

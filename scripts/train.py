@@ -2,6 +2,10 @@
 Retrain the YOLO model for your own dataset.
 """
 
+import os
+import sys
+import logging
+
 import numpy as np
 import keras.backend as K
 from keras.layers import Input, Lambda
@@ -9,15 +13,22 @@ from keras.models import Model
 from keras.optimizers import Adam
 from keras.callbacks import TensorBoard, ModelCheckpoint, ReduceLROnPlateau, EarlyStopping
 
+
+sys.path += [os.path.abspath('.'), os.path.abspath('..')]
+from yolo3.utils import update_path, get_random_data
 from yolo3.model import preprocess_true_boxes, yolo_body, tiny_yolo_body, yolo_loss
-from yolo3.utils import get_random_data
+from scripts.predict import arg_params_yolo
 
 
-def _main():
-    annotation_path = 'train.txt'
-    log_dir = 'logs/000/'
-    classes_path = 'model_data/voc_classes.txt'
-    anchors_path = 'model_data/yolo_anchors.txt'
+def parse_params():
+    # class YOLO defines the default value, so suppress any default HERE
+    parser = arg_params_yolo()
+    parser.add_argument('--path_train', type=str, required=True,
+                        help='path to the train source')
+    return parser.parse_args()
+
+
+def _main(annotation_path, output_path, anchors_path, classes_path):
     class_names = get_classes(classes_path)
     num_classes = len(class_names)
     anchors = get_anchors(anchors_path)
@@ -33,8 +44,8 @@ def _main():
                              freeze_body=2,
                              weights_path='model_data/yolo_weights.h5')  # make sure you know what you freeze
 
-    logging = TensorBoard(log_dir=log_dir)
-    checkpoint = ModelCheckpoint(log_dir + 'ep{epoch:03d}-loss{loss:.3f}-val_loss{val_loss:.3f}.h5',
+    logging = TensorBoard(log_dir=output_path)
+    checkpoint = ModelCheckpoint(output_path + 'ep{epoch:03d}-loss{loss:.3f}-val_loss{val_loss:.3f}.h5',
                                  monitor='val_loss', save_weights_only=True, save_best_only=True, period=3)
     reduce_lr = ReduceLROnPlateau(monitor='val_loss', factor=0.1, patience=3, verbose=1)
     early_stopping = EarlyStopping(monitor='val_loss', min_delta=0, patience=10, verbose=1)
@@ -65,7 +76,7 @@ def _main():
                             epochs=50,
                             initial_epoch=0,
                             callbacks=[logging, checkpoint])
-        model.save_weights(log_dir + 'trained_weights_stage_1.h5')
+        model.save_weights(output_path + 'trained_weights_stage_1.h5')
 
     # Unfreeze and continue training, to fine-tune.
     # Train longer if the result is not good.
@@ -89,7 +100,7 @@ def _main():
                             epochs=100,
                             initial_epoch=50,
                             callbacks=[logging, checkpoint, reduce_lr, early_stopping])
-        model.save_weights(log_dir + 'trained_weights_final.h5')
+        model.save_weights(output_path + 'trained_weights_final.h5')
 
     # Further training if needed.
 
@@ -127,6 +138,7 @@ def create_model(input_shape, anchors, num_classes, load_pretrained=True, freeze
     model_body = yolo_body(image_input, num_anchors // 3, num_classes)
     print('Create YOLOv3 model with {} anchors and {} classes.'
           .format(num_anchors, num_classes))
+    weights_path = update_path(weights_path)
 
     if load_pretrained:
         model_body.load_weights(weights_path, by_name=True, skip_mismatch=True)
@@ -166,6 +178,7 @@ def create_tiny_model(input_shape, anchors, num_classes, load_pretrained=True,
     model_body = tiny_yolo_body(image_input, num_anchors // 2, num_classes)
     print('Create Tiny YOLOv3 model with {} anchors and {} classes.'
           .format(num_anchors, num_classes))
+    weights_path = update_path(weights_path)
 
     if load_pretrained:
         model_body.load_weights(weights_path, by_name=True, skip_mismatch=True)
@@ -216,4 +229,7 @@ def data_generator_wrapper(annotation_lines, batch_size, input_shape, anchors, n
 
 
 if __name__ == '__main__':
-    _main()
+    logging.basicConfig(level=logging.DEBUG)
+    params = parse_params()
+    _main(**vars(params))
+    logging.info('Done')

@@ -1,6 +1,11 @@
 """
 Detections script
 
+>> python predict.py \
+       --path_output ../results \
+       --path_image dog.jpg \
+       --path_video person.mp4
+
 """
 
 import os
@@ -16,6 +21,8 @@ import numpy as np
 sys.path += [os.path.abspath('.'), os.path.abspath('..')]
 from yolo3.yolo import YOLO
 from yolo3.utils import update_path
+
+VISUAL_EXT = '_detect'
 
 
 def arg_params_yolo():
@@ -58,7 +65,10 @@ def parse_params():
 def predict_image(yolo, path_image, path_output=None):
     path_img = update_path(path_image)
     try:
+        log_level = logging.getLogger().getEffectiveLevel()
+        logging.getLogger().setLevel(logging.INFO)
         image = Image.open(path_img)
+        logging.getLogger().setLevel(log_level)
     except Exception:
         logging.error('Fail open image "%s"', path_img)
         return
@@ -68,7 +78,7 @@ def predict_image(yolo, path_image, path_output=None):
             image_pred.show()
         else:
             name = os.path.splitext(os.path.basename(path_image))[0]
-            path_img = os.path.join(path_output, name + '_visual.jpg')
+            path_img = os.path.join(path_output, name + VISUAL_EXT + '.jpg')
             path_csv = os.path.join(path_output, name + '.csv')
             logging.info('exporting "%s" and "%s"', path_img, path_csv)
             image_pred.save(path_img)
@@ -91,8 +101,8 @@ def predict_video(yolo, path_video, path_output=None):
         video_size = (int(vid.get(cv2.CAP_PROP_FRAME_WIDTH)),
                       int(vid.get(cv2.CAP_PROP_FRAME_HEIGHT)))
         name = os.path.splitext(os.path.basename(path_video))[0]
-        path_out = os.path.join(path_output, name + '_visual.avi')
-        logging.debug('export viode: %a', path_out)
+        path_out = os.path.join(path_output, name + VISUAL_EXT + '.avi')
+        logging.debug('export video: %s', path_out)
         out = cv2.VideoWriter(path_out, video_format, video_fps, video_size)
         frame_preds = []
 

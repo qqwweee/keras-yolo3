@@ -29,12 +29,15 @@ A [Keras](https://keras.io/) implementation of YOLOv3 ([Tensorflow backend](http
 3. Run YOLO detection.
     ```bash
     python3 scripts/predict.py \
+       --path_model model_data/yolo.h5 \
+       --path_anchors model_data/yolo_anchors.txt \
+       --path_classes model_data/coco_classes.txt \
        --path_output ./results \
        --path_image dog.jpg \
        --path_video person.mp4
     ```
-
-For Full YOLOv3, just do in a similar way, just specify model path and anchor path with `--model model_file` and `--anchors anchor_file`.
+    For Full YOLOv3, just do in a similar way, just specify model path and anchor path with `--path_model <model_file>` and `--path_anchors <anchor_file>`.
+4. MultiGPU usage: use `--gpu_num N` to use N GPUs. It is passed to the Keras [multi_gpu_model()](https://keras.io/utils/#multi_gpu_model).
 
 ### Usage
 Use --help to see usage of yolo_video.py:
@@ -63,8 +66,6 @@ optional arguments:
 ```
 ---
 
-4. MultiGPU usage: use `--gpu_num N` to use N GPUs. It is passed to the [Keras multi_gpu_model()](https://keras.io/utils/#multi_gpu_model).
-
 ## Training
 
 1. Generate your own annotation file and class names file.  
@@ -78,10 +79,8 @@ optional arguments:
     path/to/img2.jpg 120,300,250,600,2
     ...
     ```
-
 2. Make sure you have run `python scripts/convert_weights.py <...>`  
     The file model_data/yolo_weights.h5 is used to load pretrained weights.
-
 3. Modify train.py and start training.  `python train.py`
     Use your trained weights or checkpoint weights with command line option `--model model_file` when using `yolo_interactive.py`
     Remember to modify class path or anchor path, with `--classes class_file` and `--anchors anchor_file`.
