@@ -22,7 +22,7 @@ from yolo3.utils import get_random_data, letterbox_image
 from tensorboard_logging import log_scalar, log_images, log_histogram
 
 os.environ["CUDA_VISIBLE_DEVICES"] = "0"
-DATA_PATH = '/media/HDD'
+DATA_PATH = '/home/share'
 
 parser = argparse.ArgumentParser(description='Yolo v3 Keras base on TensorFlow implementation.')
 parser.add_argument('--classes_file', type=str, help='The .txt file include dataset <classes>',
@@ -30,18 +30,15 @@ parser.add_argument('--classes_file', type=str, help='The .txt file include data
 parser.add_argument('--anchors_file', type=str, help='The .txt file include yolo anchors type',
                     default='model_data/yolo_anchors.txt')
 # Train File
-parser.add_argument('--rodnet_train_file', type=str, help='The .txt file include <img path>, <bbox>, <class>',
-                    default=DATA_PATH + '/dataset/train.txt')
+parser.add_argument('--yolo_train_file', type=str, help='The .txt file include <img path>, <bbox>, <class>',
+                    default=DATA_PATH + '/dataset/BDD/train.txt')
 # Evaluate file
-parser.add_argument('--rodnet_val_file', type=str, help='The .txt file include <img path>, <bbox>, <class>',
-                    default=DATA_PATH + '/dataset/val.txt')
-# The images you what to save in tensorboard
-parser.add_argument('--rodnet_eval_attention_images', type=str, help='Path with .jpg file, ',
-                    default=DATA_PATH + '/dataset/val/sample_100_images')
+parser.add_argument('--yolo_val_file', type=str, help='The .txt file include <img path>, <bbox>, <class>',
+                    default=DATA_PATH + '/dataset/BDD/val.txt')
 
 args = parser.parse_args()
 
-LOGS_PATH = 'rodnet_logs/'
+LOGS_PATH = 'yolo_logs/'
 MODELS_PATH = os.path.join(LOGS_PATH, 'models')
 if not os.path.exists(MODELS_PATH):
     os.makedirs(MODELS_PATH)
@@ -50,13 +47,10 @@ if not os.path.exists(MODELS_PATH):
 class Yolo(object):
     def __init__(self):
         # Training set path
-        self.train_annotation_path = args.rodnet_train_file
+        self.train_annotation_path = args.yolo_train_file
 
         # Validation set path
-        self.val_annotation_path = args.rodnet_val_file
-
-        # Highlight images
-        self.eval_save_images_id = [img_name.split('.')[0] for img_name in os.listdir(args.rodnet_eval_attention_images)]
+        self.val_annotation_path = args.yolo_val_file
 
         # Detecter setting
         self.classes_path = args.classes_file
@@ -89,6 +83,11 @@ class Yolo(object):
             shutil.copytree(self.tmp_gt_files_path, self.tmp_gt_files_path + '_org')
         if not os.path.exists(self.tmp_pred_files_path):
             os.mkdir(self.tmp_pred_files_path)
+
+        # Highlight images
+        np.random.seed(10101)
+        images_choose = [self.val_images[i] for i in np.random.randint(0, len(self.val_images), 50)]
+        self.eval_save_images_id = [os.path.split(img_path)[-1].split('.')[0] for img_path in images_choose]
 
         # Evaluate setting parameter
         self.score = 0.3
@@ -138,7 +137,7 @@ class Yolo(object):
     def train(self):
 
         # Adversarial ground truths
-        dummy_r = np.zeros(self.step1_batch_size)  # Dummy gt for gradient rodnet
+        dummy_r = np.zeros(self.step1_batch_size)
 
         # Data generator
         yolo_train_batch = self.data_generator_wrapper(self.train_data, self.step1_batch_size,
@@ -252,7 +251,7 @@ class Yolo(object):
         log_scalar(self.callback, tab, total_loss, epoch)
         return total_loss
 
-    def eval(self, step, eval_images_path, ground_truth_path, tag='image'):
+    def eval(self, step, eval_images_path, ground_truth_path, tag='image', is_save_images=True):
         # Add the class predict temp dict
         class_pred_tmp = {}
         for class_name in self.class_names:
@@ -328,9 +327,9 @@ class Yolo(object):
                                     (new_left, new_top - 3),
                                     cv2.FONT_HERSHEY_SIMPLEX,
                                     font_size, color, 1)
-
-                if files_id[i] in self.eval_save_images_id:
-                    log_images(self.callback, tag + '/' + files_id[i], [image], step)
+                if is_save_images:
+                    if files_id[i] in self.eval_save_images_id:
+                        log_images(self.callback, tag + '/' + files_id[i], [image], step)
 
         # Create predict temp
         for class_name in self.class_names:
@@ -382,6 +381,8 @@ class Yolo(object):
                         tp[idx] = 1
                         gt_match["used"] = True
                         # count_true_positives[predicted_class] += 1
+                        with open(gt_file, 'w') as f:
+                            f.write(json.dumps(ground_truth_data))
                     else:
                         fp[idx] = 1
                 else:
@@ -573,11 +574,9 @@ class Yolo(object):
 
 
 if __name__ == "__main__":
+    yolo = Yolo()
     try:
-        yolo = Yolo()
         yolo.train()
     except KeyboardInterrupt:
         print("ctrl + c")
-        yolo.close()
-    finally:
-        yolo.close()
+    yolo.close()
