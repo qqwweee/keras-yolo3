@@ -29,20 +29,20 @@ A [Keras](https://keras.io/) implementation of YOLOv3 ([Tensorflow backend](http
 3. Run YOLO detection.
     ```bash
     python3 scripts/predict.py \
-       --path_model model_data/yolo.h5 \
+       --path_weigths model_data/yolo.h5 \
        --path_anchors model_data/yolo_anchors.txt \
        --path_classes model_data/coco_classes.txt \
        --path_output ./results \
        --path_image dog.jpg \
        --path_video person.mp4
     ```
-    For Full YOLOv3, just do in a similar way, just specify model path and anchor path with `--path_model <model_file>` and `--path_anchors <anchor_file>`.
+    For Full YOLOv3, just do in a similar way, just specify model path and anchor path with `--path_weigths <model_file>` and `--path_anchors <anchor_file>`.
 4. MultiGPU usage: use `--gpu_num N` to use N GPUs. It is passed to the Keras [multi_gpu_model()](https://keras.io/utils/#multi_gpu_model).
 
 ### Usage
 Use --help to see usage of yolo_video.py:
 ```bash
-usage: predict_interactive.py [-h] [--path_model PATH_MODEL]
+usage: predict_interactive.py [-h] [--path_weigths PATH_WEIGHTS]
                               [--path_anchors PATH_ANCHORS]
                               [--path_classes PATH_CLASSES]
                               [--gpu_num GPU_NUM]
@@ -51,7 +51,7 @@ usage: predict_interactive.py [-h] [--path_model PATH_MODEL]
 
 optional arguments:
   -h, --help            show this help message and exit
-  --path_model PATH_MODEL
+  --path_weigths PATH_WEIGHTS
                         path to model weight file
   --path_anchors PATH_ANCHORS
                         path to anchor definitions

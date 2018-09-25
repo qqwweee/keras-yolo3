@@ -29,9 +29,9 @@ def arg_params_yolo():
     # class YOLO defines the default value, so suppress any default HERE
     parser = argparse.ArgumentParser(argument_default=argparse.SUPPRESS)
     # Command line options
-    parser.add_argument('--path_model', type=str,
+    parser.add_argument('--path_weigths', type=str,
                         help='path to model weight file',
-                        default=YOLO.get_defaults("model_path"))
+                        default=YOLO.get_defaults("weigths_path"))
     parser.add_argument('--path_anchors', type=str,
                         help='path to anchor definitions',
                         default=YOLO.get_defaults("anchors_path"))
@@ -129,9 +129,9 @@ def predict_video(yolo, path_video, path_output=None):
             json.dump(frame_preds, fp)
 
 
-def _main(path_model, path_anchors, path_classes, path_output, gpu_num=0, **kwargs):
-    path_model = update_path(path_model)
-    assert os.path.isfile(path_model), 'missing "%s"' % path_model
+def _main(path_weigths, path_anchors, path_classes, path_output, gpu_num=0, **kwargs):
+    path_weigths = update_path(path_weigths)
+    assert os.path.isfile(path_weigths), 'missing "%s"' % path_weigths
     path_anchors = update_path(path_anchors)
     assert os.path.isfile(path_anchors), 'missing "%s"' % path_anchors
     path_classes = update_path(path_classes)
@@ -139,7 +139,7 @@ def _main(path_model, path_anchors, path_classes, path_output, gpu_num=0, **kwar
     path_output = update_path(path_output)
     assert os.path.isdir(path_output), 'missing "%s"' % path_output
 
-    yolo = YOLO(model_path=path_model, anchors_path=path_anchors, classes_path=path_classes)
+    yolo = YOLO(weigths_path=path_weigths, anchors_path=path_anchors, classes_path=path_classes)
 
     if 'path_image' in kwargs:
         for path_img in kwargs['path_image']:

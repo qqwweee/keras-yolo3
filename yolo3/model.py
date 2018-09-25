@@ -1,17 +1,19 @@
 """YOLO_v3 Model Defined in Keras."""
 
+import logging
 from functools import wraps
 
 import numpy as np
 import tensorflow as tf
 from keras import backend as K
 from keras.layers import Conv2D, Add, ZeroPadding2D, UpSampling2D, Concatenate, MaxPooling2D
+from keras.layers import Input, Lambda
 from keras.layers.advanced_activations import LeakyReLU
 from keras.layers.normalization import BatchNormalization
 from keras.models import Model
 from keras.regularizers import l2
 
-from yolo3.utils import compose
+from yolo3.utils import compose, update_path, get_random_data
 
 
 @wraps(Conv2D)
@@ -189,13 +191,8 @@ def yolo_boxes_and_scores(feats, anchors, num_classes, input_shape, image_shape)
     return boxes, box_scores
 
 
-def yolo_eval(yolo_outputs,
-              anchors,
-              num_classes,
-              image_shape,
-              max_boxes=20,
-              score_threshold=.6,
-              iou_threshold=.5):
+def yolo_eval(yolo_outputs, anchors, num_classes, image_shape, max_boxes=20,
+              score_threshold=.6, iou_threshold=.5):
     """Evaluate YOLO model on given input and return filtered boxes."""
     num_layers = len(yolo_outputs)
     anchor_mask = [[6, 7, 8], [3, 4, 5], [0, 1, 2]] if num_layers == 3 else [[3, 4, 5], [1, 2, 3]]  # default setting
@@ -420,3 +417,75 @@ def yolo_loss(args, anchors, num_classes, ignore_thresh=.5, print_loss=False):
             loss = tf.Print(loss, [loss, xy_loss, wh_loss, confidence_loss,
                                    class_loss, K.sum(ignore_mask)], message='loss: ')
     return loss
+
+
+def create_model(input_shape, anchors, num_classes, weights_path=None, factor=3,
+                 freeze_body=2, ignore_thresh=0.5):
+    """create the training model"""
+    K.clear_session()  # get a new session
+    image_input = Input(shape=(None, None, 3))
+    h, w = input_shape
+    num_anchors = len(anchors)
+    in_shapes = {0: 32, 1: 16, 2: 8, 3: 4}
+
+    y_true = [Input(shape=(h // {i: in_shapes for i in range(factor)}[l],
+                           w // {i: in_shapes for i in range(factor)}[l],
+                           num_anchors // factor,
+                           num_classes + 5))
+              for l in range(factor)]
+
+    model_body = yolo_body(image_input, num_anchors // factor, num_classes)
+    logging.info('Create YOLOv3 (factor: %i) model with %i anchors and %i classes.',
+                 factor, num_anchors, num_classes)
+    weights_path = update_path(weights_path)
+
+    if weights_path is not None:
+        model_body.load_weights(weights_path, by_name=True, skip_mismatch=True)
+        logging.info('Load weights "%s".', weights_path)
+        if freeze_body in [1, 2]:
+            # Freeze darknet53 body or freeze all but 3 output layers.
+            num = (185, len(model_body.layers) - factor)[freeze_body - 1]
+            for i in range(num):
+                model_body.layers[i].trainable = False
+            logging.info('Freeze the first %i layers of total %i layers.',
+                         num, len(model_body.layers))
+
+    model_loss_fn = Lambda(yolo_loss, output_shape=(1,), name='yolo_loss',
+                           arguments={'anchors': anchors,
+                                      'num_classes': num_classes,
+                                      'ignore_thresh': ignore_thresh})
+    model_loss = model_loss_fn([*model_body.output, *y_true])
+    model = Model([model_body.input, *y_true], model_loss)
+
+    return model
+
+
+def create_model_tiny(input_shape, anchors, num_classes, weights_path=None,
+                      freeze_body=2, ignore_thresh=0.5):
+    """create the training model, for Tiny YOLOv3 """
+
+    return create_model(input_shape, anchors, num_classes, weights_path, factor=2,
+                        freeze_body=freeze_body, ignore_thresh=ignore_thresh)
+
+
+def data_generator(annotation_lines, batch_size, input_shape, anchors, num_classes):
+    """ data generator for fit_generator """
+    nb = len(annotation_lines)
+    circ_i = 0
+    if nb == 0 or batch_size <= 0:
+        return None
+
+    while True:
+        np.random.shuffle(annotation_lines)
+        image_data = []
+        box_data = []
+        for b in range(batch_size):
+            image, box = get_random_data(annotation_lines[circ_i], input_shape, random=True)
+            image_data.append(image)
+            box_data.append(box)
+            circ_i = (circ_i + 1) % nb
+        image_data = np.array(image_data)
+        box_data = np.array(box_data)
+        y_true = preprocess_true_boxes(box_data, input_shape, anchors, num_classes)
+        yield [image_data, *y_true], np.zeros(batch_size)
+
