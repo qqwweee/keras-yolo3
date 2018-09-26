@@ -488,4 +488,3 @@ def data_generator(annotation_lines, batch_size, input_shape, anchors, num_class
         box_data = np.array(box_data)
         y_true = preprocess_true_boxes(box_data, input_shape, anchors, num_classes)
         yield [image_data, *y_true], np.zeros(batch_size)
-

@@ -5,3 +5,4 @@ keras>=2.0.0
 tensorflow>=1.4.0
 pandas
 opencv-python
+tqdm
