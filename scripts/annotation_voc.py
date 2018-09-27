@@ -1,4 +1,5 @@
 """
+Creating training file fro VOC dataset
 
 >> python scripts/annotation_voc.py \
     --path_dataset /home/jb/Data/VOCdevkit \
@@ -67,9 +68,9 @@ def convert_annotation(path_dataset_year, image_id, classes):
 
 
 def _main(path_dataset, path_output, classes=None):
-    path_dataset = os.path.expanduser(path_dataset)
+    path_dataset = os.path.abspath(os.path.expanduser(path_dataset))
     assert os.path.isdir(path_dataset), 'missing: %s' % path_dataset
-    path_output = os.path.expanduser(path_output)
+    path_output = os.path.abspath(os.path.expanduser(path_output))
     assert os.path.isdir(path_output), 'missing: %s' % path_output
 
     if classes is None:
@@ -83,7 +84,7 @@ def _main(path_dataset, path_output, classes=None):
         with open(path_imgs_ids, 'r') as fp:
             image_ids = fp.read().strip().split()
 
-        path_out_list = os.path.join(path_output, '%s_%s.txt' % (year, image_set))
+        path_out_list = os.path.join(path_output, 'VOC_%s_%s.txt' % (year, image_set))
         logging.info('creating list file: %s', path_out_list)
         with open(path_out_list, 'w') as list_file:
             for image_id in tqdm.tqdm(image_ids):
