@@ -17,7 +17,9 @@ A [Keras](https://keras.io/) implementation of YOLOv3 ([Tensorflow backend](http
 
 1. Download YOLOv3 weights from [YOLO website](http://pjreddie.com/darknet/yolo/).
     ```bash
-    wget -O model_data/yolo.weights  https://pjreddie.com/media/files/yolov3.weights  --progress=bar:force:noscroll
+    wget -O model_data/yolo.weights  \
+       https://pjreddie.com/media/files/yolov3.weights  \
+       --progress=bar:force:noscroll
     ```
 2. Convert the Darknet YOLO model to a Keras model.
     ```bash
@@ -39,31 +41,6 @@ A [Keras](https://keras.io/) implementation of YOLOv3 ([Tensorflow backend](http
     For Full YOLOv3, just do in a similar way, just specify model path and anchor path with `--path_weigths <model_file>` and `--path_anchors <anchor_file>`.
 4. MultiGPU usage: use `--gpu_num N` to use N GPUs. It is passed to the Keras [multi_gpu_model()](https://keras.io/utils/#multi_gpu_model).
 
-### Usage
-Use --help to see usage of yolo_video.py:
-```bash
-usage: predict_interactive.py [-h] [--path_weigths PATH_WEIGHTS]
-                              [--path_anchors PATH_ANCHORS]
-                              [--path_classes PATH_CLASSES]
-                              [--gpu_num GPU_NUM]
-                              [--path_output [PATH_OUTPUT]] [--image]
-                              [--video [VIDEO]
-
-optional arguments:
-  -h, --help            show this help message and exit
-  --path_weigths PATH_WEIGHTS
-                        path to model weight file
-  --path_anchors PATH_ANCHORS
-                        path to anchor definitions
-  --path_classes PATH_CLASSES
-                        path to class definitions
-  --gpu_num GPU_NUM     Number of GPU to use
-  --path_output [PATH_OUTPUT]
-                        path to the output directory
-  --image               Image detection mode.
-  --video [VIDEO]       Video input path.
-
-```
 ---
 
 ## Training
