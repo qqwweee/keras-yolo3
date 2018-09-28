@@ -77,7 +77,8 @@ class YOLO(object):
     def generate(self):
         # weigths_path = update_path(self.weigths_path)
         logging.debug('loading model from "%s"', self.weigths_path)
-        assert self.weigths_path.endswith('.h5'), 'Keras model or weights must be a .h5 file.'
+        assert self.weigths_path.endswith('.h5'), \
+            'Keras model or weights must be a .h5 file.'
 
         # Load model, or construct model and load weights.
         num_anchors = len(self.anchors)
@@ -87,25 +88,28 @@ class YOLO(object):
             self.yolo_model = load_model(self.weigths_path, compile=False)
         except Exception:
             if is_tiny_version:
-                self.yolo_model = tiny_yolo_body(Input(shape=(None, None, 3)), num_anchors // 2, num_classes)
+                self.yolo_model = tiny_yolo_body(Input(shape=(None, None, 3)),
+                                                 num_anchors // 2, num_classes)
             else:
-                self.yolo_model = yolo_body(Input(shape=(None, None, 3)), num_anchors // 3, num_classes)
-            self.yolo_model.load_weights(self.weigths_path)  # make sure model, anchors and classes match
+                self.yolo_model = yolo_body(Input(shape=(None, None, 3)),
+                                            num_anchors // 3, num_classes)
+            # make sure model, anchors and classes match
+            self.yolo_model.load_weights(self.weigths_path)
         else:
             out_shape = self.yolo_model.layers[-1].output_shape[-1]
             ration_anchors = num_anchors / len(self.yolo_model.output) * (num_classes + 5)
             assert out_shape == ration_anchors, \
                 'Mismatch between model and given anchor and class sizes'
 
-        logging.info('loaded model, anchors, and classes from %s', self.weigths_path)
+        logging.info('loaded model, anchors, and classes from %s',
+                     self.weigths_path)
 
         # Generate colors for drawing bounding boxes.
         hsv_tuples = [(x / len(self.class_names), 1., 1.)
                       for x in range(len(self.class_names))]
         self.colors = list(map(lambda x: colorsys.hsv_to_rgb(*x), hsv_tuples))
-        self.colors = list(
-            map(lambda x: (int(x[0] * 255), int(x[1] * 255), int(x[2] * 255)),
-                self.colors))
+        _fn_colorr = lambda x: (int(x[0] * 255), int(x[1] * 255), int(x[2] * 255))
+        self.colors = list(map(_fn_colorr, self.colors))
         np.random.seed(10101)  # Fixed seed for consistent colors across runs.
         np.random.shuffle(self.colors)  # Shuffle colors to decorrelate adjacent classes.
         np.random.seed(None)  # Reset seed to default.
@@ -114,9 +118,12 @@ class YOLO(object):
         self.input_image_shape = K.placeholder(shape=(2,))
         if self.gpu_num >= 2:
             self.yolo_model = multi_gpu_model(self.yolo_model, gpus=self.gpu_num)
-        boxes, scores, classes = yolo_eval(self.yolo_model.output, self.anchors,
-                                           len(self.class_names), self.input_image_shape,
-                                           score_threshold=self.score, iou_threshold=self.iou)
+        boxes, scores, classes = yolo_eval(self.yolo_model.output,
+                                           self.anchors,
+                                           len(self.class_names),
+                                           self.input_image_shape,
+                                           score_threshold=self.score,
+                                           iou_threshold=self.iou)
         return boxes, scores, classes
 
     def detect_image(self, image):
@@ -152,11 +159,12 @@ class YOLO(object):
 
         predicts = []
         for i, c in reversed(list(enumerate(out_classes))):
-            draw_bounding_box(image, self.class_names[c], out_boxes[i], out_scores[i],
-                              self.colors[c], thickness)
+            draw_bounding_box(image, self.class_names[c], out_boxes[i],
+                              out_scores[i], self.colors[c], thickness)
             pred = dict(zip(
                 PREDICT_FIELDS,
-                (int(c), self.class_names[c], float(out_scores[i]), *[int(x) for x in out_boxes[i]])
+                (int(c), self.class_names[c], float(out_scores[i]),
+                 *[int(x) for x in out_boxes[i]])
             ))
             predicts.append(pred)
 

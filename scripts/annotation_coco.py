@@ -1,9 +1,15 @@
 """
 Creating training file fro COCO dataset
 
+>> wget -O ~/Data/train2014.zip http://images.cocodataset.org/zips/train2014.zip
+>> wget -O ~/Data/val2014.zip http://images.cocodataset.org/zips/val2014.zip
+>> wget -O ~/Data/annotations_trainval2014.zip http://images.cocodataset.org/annotations/annotations_trainval2014.zip
+
+>> unzip train2014.zip val2014.zip annotations_trainval2014.zip -d ~/Data/COCO
+
 >> python annotation_coco.py \
-    --path_annot /home/jb/Data/COCO/annotations/instances_train2014.json \
-    --path_images /home/jb/Data/COCO/train2014 \
+    --path_annot ~/Data/COCO/annotations/instances_train2014.json \
+    --path_images ~/Data/COCO/train2014 \
     --path_output .
 """
 

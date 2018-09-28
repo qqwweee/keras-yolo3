@@ -1,27 +1,40 @@
 """
 Creating training file fro VOC dataset
 
+>> wget -O ~/Data/VOCtrainval_2007.tar  http://pjreddie.com/media/files/VOCtrainval_06-Nov-2007.tar
+>> wget -O ~/Data/VOCtest_2007.tar      http://pjreddie.com/media/files/VOCtest_06-Nov-2007.tar
+>> wget -O ~/Data/VOCtrainval_2012.tar  http://pjreddie.com/media/files/VOCtrainval_11-May-2012.tar
+>> wget -O ~/Data/VOCtest_2012.tar      http://pjreddie.com/media/files/VOC2012test.tar
+
+>> tar xopf VOCtrainval_2007.tar --directory ~/Data
+>> ...
+
 >> python scripts/annotation_voc.py \
-    --path_dataset /home/jb/Data/VOCdevkit \
-    --classes aeroplane bicycle bird boat bottle bus car cat chair cow diningtable dog horse motorbike person pottedplant sheep sofa train tvmonitor
+    --path_dataset ~/Data/VOCdevkit \
+    --classes aeroplane bicycle bird boat bottle bus car cat chair \
+            cow diningtable dog horse motorbike person pottedplant \
+            sheep sofa train tvmonitor \
+    --sets 2007,train 2007,val \
+    --path_output .
 """
 
 import os
 import glob
 import argparse
 import logging
+import json
 import xml.etree.ElementTree as ET
 
 import tqdm
-
-
-SETS = [('2007', 'train'), ('2007', 'val'), ('2007', 'test')]
 
 
 def parse_arguments():
     parser = argparse.ArgumentParser(description='Annotation Converter (VOC).')
     parser.add_argument('--path_dataset', type=str, required=True,
                         help='Path to VOC dataset.')
+    parser.add_argument('--sets', type=str, required=False, nargs='+',
+                        help='List of sets in dataset.',
+                        default=('2007,train', '2007,val', '2007,test'))
     parser.add_argument('--path_output', type=str, required=False, default='.',
                         help='Path to output folder.')
     parser.add_argument('--classes', type=str, required=False, default=None, nargs='*',
@@ -67,19 +80,31 @@ def convert_annotation(path_dataset_year, image_id, classes):
     return records
 
 
-def _main(path_dataset, path_output, classes=None):
+def _main(path_dataset, path_output, sets, classes=None):
     path_dataset = os.path.abspath(os.path.expanduser(path_dataset))
     assert os.path.isdir(path_dataset), 'missing: %s' % path_dataset
     path_output = os.path.abspath(os.path.expanduser(path_output))
     assert os.path.isdir(path_output), 'missing: %s' % path_output
 
     if classes is None:
-        classes = load_all_classes(os.path.join(path_dataset, 'VOC%s' % SETS[0][0]))
+        classes = [load_all_classes(os.path.join(path_dataset,
+                                                 'VOC%s' % year_image_set[0]))
+                   for year_image_set in sets]
+        classes = list(set(classes))
 
-    for year, image_set in SETS:
+    path_json = os.path.join(path_output, 'voc_classes.txt')
+    logging.info('export TXT classes: %s', path_json)
+    with open(path_json, 'w') as fp:
+        fp.write('\n'.join(classes))
+
+    for year_image_set in sets:
+        year, image_set = year_image_set.split(',')
         path_dataset_year = os.path.join(path_dataset, 'VOC%s' % year)
         path_imgs_ids = os.path.join(path_dataset_year, 'ImageSets', 'Main',
                                      '%s.txt' % image_set)
+        if not os.path.isfile(path_imgs_ids):
+            logging.warning('missing annot. file: %s', path_imgs_ids)
+            continue
         logging.info('loading image IDs: %s', path_imgs_ids)
         with open(path_imgs_ids, 'r') as fp:
             image_ids = fp.read().strip().split()
