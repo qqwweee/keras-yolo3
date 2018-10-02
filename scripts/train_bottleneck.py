@@ -11,7 +11,7 @@ from keras.optimizers import Adam
 from keras.callbacks import TensorBoard, ModelCheckpoint, ReduceLROnPlateau, EarlyStopping
 
 from yolo3.model import preprocess_true_boxes, yolo_body, yolo_loss
-from yolo3.utils import get_random_data
+from yolo3.utils import get_random_data, get_anchors, get_class_names
 
 
 def _main():
@@ -19,7 +19,7 @@ def _main():
     log_dir = 'logs/000/'
     classes_path = 'model_data/coco_classes.txt'
     anchors_path = 'model_data/yolo_anchors.txt'
-    class_names = get_classes(classes_path)
+    class_names = get_class_names(classes_path)
     num_classes = len(class_names)
     anchors = get_anchors(anchors_path)
 
@@ -115,22 +115,6 @@ def _main():
         model.save_weights(log_dir + 'trained_weights_final.h5')
 
     # Further training if needed.
-
-
-def get_classes(classes_path):
-    """loads the classes"""
-    with open(classes_path) as f:
-        class_names = f.readlines()
-    class_names = [c.strip() for c in class_names]
-    return class_names
-
-
-def get_anchors(anchors_path):
-    """loads the anchors from a file"""
-    with open(anchors_path) as f:
-        anchors = f.readline()
-    anchors = [float(x) for x in anchors.split(',')]
-    return np.array(anchors).reshape(-1, 2)
 
 
 def create_model(input_shape, anchors, num_classes, load_pretrained=True, freeze_body=2,

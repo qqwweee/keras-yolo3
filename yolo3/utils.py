@@ -1,6 +1,7 @@
 """Miscellaneous utility functions."""
 
 import os
+import logging
 from functools import reduce
 
 from PIL import Image
@@ -164,3 +165,38 @@ def get_random_data(annotation_line, input_shape, random=True, max_boxes=20,
         box_data[:len(box)] = box
 
     return image_data, box_data
+
+
+def get_class_names(path_classes):
+    logging.debug('loading classes from "%s"', path_classes)
+    with open(path_classes) as f:
+        class_names = f.readlines()
+    class_names = [c.strip() for c in class_names]
+    return class_names
+
+
+def get_nb_classes(path_train_annot=None, path_classes=None):
+    if path_classes is not None and os.path.isfile(path_classes):
+        class_names = get_class_names(path_classes)
+        nb_classes = len(class_names)
+    elif path_train_annot is not None and os.path.isfile(path_train_annot):
+        with open(path_train_annot) as f:
+            lines = f.readlines()
+        classes = []
+        for ln in lines:
+            classes += [bbox.split(',')[-1] for bbox in ln.rstrip().split(' ')[1:]]
+        classes = [int(c) for c in classes]
+        nb_classes = len(set(classes))
+    else:
+        logging.warning('No input for extracting classes.')
+        nb_classes = 0
+    return nb_classes
+
+
+def get_anchors(path_anchors):
+    """loads the anchors from a file"""
+    with open(path_anchors) as f:
+        anchors = f.readline()
+    anchors = [float(x) for x in anchors.split(',')]
+    anchors = np.array(anchors).reshape(-1, 2)
+    return anchors

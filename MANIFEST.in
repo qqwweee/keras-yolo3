@@ -10,7 +10,7 @@ include *.md
 include LICENSE
 
 # Include the data files
-recursive-include model_data *.txt *.cfg
+recursive-include model_data *.txt *.cfg *.json
 
 # Include scripts
 recursive-include scripts *.py

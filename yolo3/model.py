@@ -326,7 +326,6 @@ def box_iou(b1, b2):
     iou: tensor, shape=(i1,...,iN, j)
 
     """
-
     # Expand dim to apply broadcasting.
     b1 = K.expand_dims(b1, -2)
     b1_xy = b1[..., :2]
@@ -445,19 +444,21 @@ def yolo_loss(args, anchors, num_classes, ignore_thresh=.5, print_loss=False):
 def create_model(input_shape, anchors, num_classes, weights_path=None, factor=3,
                  freeze_body=2, ignore_thresh=0.5):
     """create the training model"""
+    INPUT_SHAPES = {0: 32, 1: 16, 2: 8, 3: 4}
+    FACTOR_YOLO_BODY = {2: tiny_yolo_body, 3: yolo_body}
+    FACTOR_FREEZEING = {2: 20, 3: 185}
+
     K.clear_session()  # get a new session
     image_input = Input(shape=(None, None, 3))
     h, w = input_shape
     num_anchors = len(anchors)
-    in_shapes = {0: 32, 1: 16, 2: 8, 3: 4}
 
-    y_true = [Input(shape=(h // {i: in_shapes for i in range(factor)}[l],
-                           w // {i: in_shapes for i in range(factor)}[l],
+    y_true = [Input(shape=(h // {i: INPUT_SHAPES[i] for i in range(factor)}[l],
+                           w // {i: INPUT_SHAPES[i] for i in range(factor)}[l],
                            num_anchors // factor,
                            num_classes + 5))
               for l in range(factor)]
-
-    model_body = yolo_body(image_input, num_anchors // factor, num_classes)
+    model_body = FACTOR_YOLO_BODY[factor](image_input, num_anchors // factor, num_classes)
     logging.info('Create YOLOv3 (factor: %i) model with %i anchors and %i classes.',
                  factor, num_anchors, num_classes)
     weights_path = update_path(weights_path)
@@ -467,7 +468,8 @@ def create_model(input_shape, anchors, num_classes, weights_path=None, factor=3,
         logging.info('Load weights "%s".', weights_path)
         if freeze_body in [1, 2]:
             # Freeze darknet53 body or freeze all but 3 output layers.
-            num = (185, len(model_body.layers) - factor)[freeze_body - 1]
+            num = (FACTOR_FREEZEING[factor],
+                   len(model_body.layers) - factor)[freeze_body - 1]
             for i in range(num):
                 model_body.layers[i].trainable = False
             logging.info('Freeze the first %i layers of total %i layers.',
@@ -491,7 +493,7 @@ def create_model_tiny(input_shape, anchors, num_classes, weights_path=None,
                         freeze_body=freeze_body, ignore_thresh=ignore_thresh)
 
 
-def data_generator(annotation_lines, batch_size, input_shape, anchors, num_classes):
+def data_generator(annotation_lines, batch_size, input_shape, anchors, nb_classes):
     """ data generator for fit_generator """
     nb = len(annotation_lines)
     circ_i = 0
@@ -511,5 +513,5 @@ def data_generator(annotation_lines, batch_size, input_shape, anchors, num_class
         image_data = np.array(image_data)
         box_data = np.array(box_data)
         y_true = preprocess_true_boxes(box_data, input_shape,
-                                       anchors, num_classes)
+                                       anchors, nb_classes)
         yield [image_data, *y_true], np.zeros(batch_size)

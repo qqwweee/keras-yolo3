@@ -14,7 +14,7 @@ from keras.layers import Input
 from keras.utils import multi_gpu_model
 
 from yolo3.model import yolo_eval, yolo_body, tiny_yolo_body
-from yolo3.utils import letterbox_image, update_path
+from yolo3.utils import letterbox_image, update_path, get_anchors, get_class_names
 from yolo3.visual import draw_bounding_box
 
 PREDICT_FIELDS = ('class', 'label', 'score', 'xmin', 'ymin', 'xmax', 'ymax')
@@ -23,7 +23,7 @@ PREDICT_FIELDS = ('class', 'label', 'score', 'xmin', 'ymin', 'xmax', 'ymax')
 class YOLO(object):
 
     _DEFAULT_PARAMS = {
-        "weigths_path": 'model_data/tiny-yolo.h5',
+        "weights_path": 'model_data/tiny-yolo.h5',
         "anchors_path": 'model_data/tiny-yolo_anchors.txt',
         "classes_path": 'model_data/coco_classes.txt',
         "score": 0.3,
@@ -39,45 +39,29 @@ class YOLO(object):
         else:
             return "Unrecognized attribute name '" + n + "'"
 
-    def __init__(self, weigths_path='model_data/tiny-yolo.h5',
+    def __init__(self, weights_path='model_data/tiny-yolo.h5',
                  anchors_path='model_data/tiny-yolo_anchors.txt',
                  classes_path='model_data/coco_classes.txt',
                  score=0.3, iou=0.45,
                  model_image_size=(416, 416),
                  gpu_num=1, **kwargs):
         self.__dict__.update(kwargs)  # and update with user overrides
-        self.weigths_path = update_path(weigths_path)
+        self.weights_path = update_path(weights_path)
         self.anchors_path = update_path(anchors_path)
         self.classes_path = update_path(classes_path)
         self.score = score
         self.iou = iou
         self.model_image_size = model_image_size
         self.gpu_num = gpu_num
-        self.class_names = self._get_class()
-        self.anchors = self._get_anchors()
+        self.class_names = get_class_names(self.classes_path)
+        self.anchors = get_anchors(self.anchors_path)
         self.sess = K.get_session()
         self.boxes, self.scores, self.classes = self.generate()
 
-    def _get_class(self):
-        # classes_path = update_path(self.classes_path)
-        logging.debug('loading classes from "%s"', self.classes_path)
-        with open(self.classes_path) as f:
-            class_names = f.readlines()
-        class_names = [c.strip() for c in class_names]
-        return class_names
-
-    def _get_anchors(self):
-        # anchors_path = update_path(self.anchors_path)
-        logging.debug('loading anchors from "%s"', self.anchors_path)
-        with open(self.anchors_path) as f:
-            anchors = f.readline()
-        anchors = [float(x) for x in anchors.split(',')]
-        return np.array(anchors).reshape(-1, 2)
-
     def generate(self):
-        # weigths_path = update_path(self.weigths_path)
-        logging.debug('loading model from "%s"', self.weigths_path)
-        assert self.weigths_path.endswith('.h5'), \
+        # weights_path = update_path(self.weights_path)
+        logging.debug('loading model from "%s"', self.weights_path)
+        assert self.weights_path.endswith('.h5'), \
             'Keras model or weights must be a .h5 file.'
 
         # Load model, or construct model and load weights.
@@ -85,7 +69,7 @@ class YOLO(object):
         num_classes = len(self.class_names)
         is_tiny_version = (num_anchors == 6)  # default setting
         try:
-            self.yolo_model = load_model(self.weigths_path, compile=False)
+            self.yolo_model = load_model(self.weights_path, compile=False)
         except Exception:
             if is_tiny_version:
                 self.yolo_model = tiny_yolo_body(Input(shape=(None, None, 3)),
@@ -94,7 +78,7 @@ class YOLO(object):
                 self.yolo_model = yolo_body(Input(shape=(None, None, 3)),
                                             num_anchors // 3, num_classes)
             # make sure model, anchors and classes match
-            self.yolo_model.load_weights(self.weigths_path)
+            self.yolo_model.load_weights(self.weights_path)
         else:
             out_shape = self.yolo_model.layers[-1].output_shape[-1]
             ration_anchors = num_anchors / len(self.yolo_model.output) * (num_classes + 5)
@@ -102,7 +86,7 @@ class YOLO(object):
                 'Mismatch between model and given anchor and class sizes'
 
         logging.info('loaded model, anchors, and classes from %s',
-                     self.weigths_path)
+                     self.weights_path)
 
         # Generate colors for drawing bounding boxes.
         hsv_tuples = [(x / len(self.class_names), 1., 1.)

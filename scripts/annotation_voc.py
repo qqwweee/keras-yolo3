@@ -9,20 +9,19 @@ Creating training file fro VOC dataset
 >> tar xopf VOCtrainval_2007.tar --directory ~/Data
 >> ...
 
->> python scripts/annotation_voc.py \
+>> python annotation_voc.py \
     --path_dataset ~/Data/VOCdevkit \
     --classes aeroplane bicycle bird boat bottle bus car cat chair \
             cow diningtable dog horse motorbike person pottedplant \
             sheep sofa train tvmonitor \
     --sets 2007,train 2007,val \
-    --path_output .
+    --path_output model_data
 """
 
 import os
 import glob
 import argparse
 import logging
-import json
 import xml.etree.ElementTree as ET
 
 import tqdm

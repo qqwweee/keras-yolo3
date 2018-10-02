@@ -10,7 +10,7 @@ Creating training file fro COCO dataset
 >> python annotation_coco.py \
     --path_annot ~/Data/COCO/annotations/instances_train2014.json \
     --path_images ~/Data/COCO/train2014 \
-    --path_output .
+    --path_output model_data
 """
 
 import os

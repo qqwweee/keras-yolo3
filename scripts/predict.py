@@ -29,9 +29,9 @@ def arg_params_yolo():
     # class YOLO defines the default value, so suppress any default HERE
     parser = argparse.ArgumentParser(argument_default=argparse.SUPPRESS)
     # Command line options
-    parser.add_argument('--path_weigths', type=str,
+    parser.add_argument('--path_weights', type=str,
                         help='path to model weight file',
-                        default=YOLO.get_defaults("weigths_path"))
+                        default=YOLO.get_defaults("weights_path"))
     parser.add_argument('--path_anchors', type=str,
                         help='path to anchor definitions',
                         default=YOLO.get_defaults("anchors_path"))
@@ -59,7 +59,9 @@ def parse_params():
     # if there is only single path still make it as a list
     if hasattr(params, 'path_video') and not isinstance(params.path_video, list):
         params.path_video = [params.path_video]
-    return params
+    arg_params = vars(parser.parse_args())
+    logging.debug('PARAMETERS: \n %s', repr(arg_params))
+    return arg_params
 
 
 def predict_image(yolo, path_image, path_output=None):
@@ -129,17 +131,24 @@ def predict_video(yolo, path_video, path_output=None):
             json.dump(frame_preds, fp)
 
 
-def _main(path_weigths, path_anchors, path_classes, path_output, gpu_num=0, **kwargs):
-    path_weigths = update_path(path_weigths)
-    assert os.path.isfile(path_weigths), 'missing "%s"' % path_weigths
+def path_assers(path_weights, path_anchors, path_classes, path_output):
+    path_weights = update_path(path_weights)
+    assert os.path.isfile(path_weights), 'missing "%s"' % path_weights
     path_anchors = update_path(path_anchors)
     assert os.path.isfile(path_anchors), 'missing "%s"' % path_anchors
     path_classes = update_path(path_classes)
     assert os.path.isfile(path_classes), 'missing "%s"' % path_classes
     path_output = update_path(path_output)
     assert os.path.isdir(path_output), 'missing "%s"' % path_output
+    return path_weights, path_anchors, path_classes, path_output
 
-    yolo = YOLO(weigths_path=path_weigths, anchors_path=path_anchors, classes_path=path_classes)
+
+def _main(path_weights, path_anchors, path_classes, path_output, gpu_num=0, **kwargs):
+    path_weights, path_anchors, path_classes, path_output = path_assers(
+        path_weights, path_anchors, path_classes, path_output)
+
+    yolo = YOLO(weights_path=path_weights, anchors_path=path_anchors,
+                classes_path=path_classes, gpu_num=gpu_num)
 
     if 'path_image' in kwargs:
         for path_img in kwargs['path_image']:
@@ -147,7 +156,7 @@ def _main(path_weigths, path_anchors, path_classes, path_output, gpu_num=0, **kw
             predict_image(yolo, path_img, path_output)
     if 'path_video' in kwargs:
         for path_vid in kwargs['path_video']:
-            logging.info('processing: "%s"', path_img)
+            logging.info('processing: "%s"', path_vid)
             predict_video(yolo, path_vid, path_output)
 
     yolo.close_session()
@@ -158,6 +167,6 @@ if __name__ == '__main__':
     # class YOLO defines the default value, so suppress any default HERE
     arg_params = parse_params()
 
-    _main(**vars(arg_params))
+    _main(**arg_params)
 
     logging.info('Done')

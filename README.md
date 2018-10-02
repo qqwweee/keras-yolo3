@@ -31,14 +31,14 @@ A [Keras](https://keras.io/) implementation of YOLOv3 ([Tensorflow backend](http
 3. Run YOLO detection.
     ```bash
     python3 scripts/predict.py \
-       --path_weigths model_data/yolo.h5 \
+       --path_weights model_data/yolo.h5 \
        --path_anchors model_data/yolo_anchors.txt \
        --path_classes model_data/coco_classes.txt \
        --path_output ./results \
        --path_image dog.jpg \
        --path_video person.mp4
     ```
-    For Full YOLOv3, just do in a similar way, just specify model path and anchor path with `--path_weigths <model_file>` and `--path_anchors <anchor_file>`.
+    For Full YOLOv3, just do in a similar way, just specify model path and anchor path with `--path_weights <model_file>` and `--path_anchors <anchor_file>`.
 4. MultiGPU usage: use `--gpu_num N` to use N GPUs. It is passed to the Keras [multi_gpu_model()](https://keras.io/utils/#multi_gpu_model).
 
 ---

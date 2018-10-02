@@ -1,5 +1,7 @@
 """
-Detection in iteractive mode
+Detection in interactive mode
+
+>> python predict_interactive.py --image
 """
 
 import os
@@ -23,7 +25,9 @@ def parse_params():
     # Command line positional arguments -- for video detection mode
     parser.add_argument('--video', nargs='?', type=str, required=False,
                         default='./path2your_video', help='Video input path.')
-    return parser.parse_args()
+    arg_params = vars(parser.parse_args())
+    logging.debug('PARAMETERS: \n %s', repr(arg_params))
+    return arg_params
 
 
 def detect_img(yolo):
@@ -78,17 +82,17 @@ if __name__ == '__main__':
     # class YOLO defines the default value, so suppress any default HERE
     arg_params = parse_params()
 
-    yolo = YOLO(**vars(arg_params))
+    yolo = YOLO(**arg_params)
 
-    if arg_params.image:
+    if 'image' in arg_params and arg_params['image']:
         # Image detection mode, disregard any remaining command line arguments
         logging.info('Image detection mode')
-        if hasattr(arg_params, 'video'):
+        if 'video' in arg_params:
             logging.warning('Ignoring remaining command line arguments: %s , %s',
-                            arg_params.video, arg_params.path_output)
+                            arg_params['video'], arg_params['path_output'])
         detect_img(yolo)
-    elif hasattr(arg_params, 'video'):
-        detect_video(yolo, arg_params.video, arg_params.path_output)
+    elif 'video' in arg_params:
+        detect_video(yolo, arg_params['video'], arg_params['path_output'])
     else:
         logging.info('Must specify at least video_input_path.  See usage with --help.')
 
