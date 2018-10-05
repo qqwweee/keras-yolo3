@@ -1,5 +1,5 @@
 """
-Creating training file fro VOC dataset
+Creating training file from VOC dataset
 
 >> wget -O ~/Data/VOCtrainval_2007.tar  http://pjreddie.com/media/files/VOCtrainval_06-Nov-2007.tar
 >> wget -O ~/Data/VOCtest_2007.tar      http://pjreddie.com/media/files/VOCtest_06-Nov-2007.tar
@@ -11,11 +11,9 @@ Creating training file fro VOC dataset
 
 >> python annotation_voc.py \
     --path_dataset ~/Data/VOCdevkit \
-    --classes aeroplane bicycle bird boat bottle bus car cat chair \
-            cow diningtable dog horse motorbike person pottedplant \
-            sheep sofa train tvmonitor \
+    --classes aeroplane bicycle bird boat bottle bus car cat chair person \
     --sets 2007,train 2007,val \
-    --path_output model_data
+    --path_output ../model_data
 """
 
 import os
@@ -86,10 +84,11 @@ def _main(path_dataset, path_output, sets, classes=None):
     assert os.path.isdir(path_output), 'missing: %s' % path_output
 
     if classes is None:
+        years = set([year_type.split(',')[0] for year_type in sets])
         classes = [load_all_classes(os.path.join(path_dataset,
-                                                 'VOC%s' % year_image_set[0]))
-                   for year_image_set in sets]
-        classes = list(set(classes))
+                                                 'VOC%s' % year))
+                   for year in years]
+        classes = list(set(*classes))
 
     path_json = os.path.join(path_output, 'voc_classes.txt')
     logging.info('export TXT classes: %s', path_json)

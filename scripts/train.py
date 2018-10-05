@@ -87,6 +87,7 @@ def _main(path_annot, path_anchors, path_weights=None, path_output='.',
 
     is_tiny_version = len(anchors) == 6  # default setting
     _create_model = create_model_tiny if is_tiny_version else create_model
+    name_prefix = 'tiny-' if is_tiny_version else ''
     model = _create_model(config['image-size'], anchors, nb_classes, freeze_body=2,
                           weights_path=path_weights)
 
@@ -124,7 +125,7 @@ def _main(path_annot, path_anchors, path_weights=None, path_output='.',
                             initial_epoch=0,
                             callbacks=[tb_logging, checkpoint])
         logging.info('Training took %f minutes', (time.time() - t_start) / 60.)
-        path_weights = os.path.join(path_output, 'trained_weights_stage.h5')
+        path_weights = os.path.join(path_output, name_prefix + 'yolo_trained_body.h5')
         logging.info('Exporting weights: %s', path_weights)
         model.save_weights(path_weights)
 
@@ -147,7 +148,7 @@ def _main(path_annot, path_anchors, path_weights=None, path_output='.',
                         initial_epoch=config['epochs-fine'],
                         callbacks=[tb_logging, checkpoint, reduce_lr, early_stopping])
     logging.info('Training took %f minutes', (time.time() - t_start) / 60.)
-    path_weights = os.path.join(path_output, 'trained_weights_final.h5')
+    path_weights = os.path.join(path_output, name_prefix + 'yolo_trained_final.h5')
     logging.info('Exporting weights: %s', path_weights)
     model.save_weights(path_weights)
 
