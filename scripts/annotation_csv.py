@@ -1,5 +1,5 @@
 """
-Creating training file from costume dataset
+Creating training file from own custom dataset
 
 >> python annotation_csv.py \
     --path_dataset ~/Data/PeopleDetections \

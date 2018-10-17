@@ -136,10 +136,11 @@ def path_assers(path_weights, path_anchors, path_classes, path_output):
     assert os.path.isfile(path_weights), 'missing "%s"' % path_weights
     path_anchors = update_path(path_anchors)
     assert os.path.isfile(path_anchors), 'missing "%s"' % path_anchors
-    path_classes = update_path(path_classes)
-    assert os.path.isfile(path_classes), 'missing "%s"' % path_classes
     path_output = update_path(path_output)
     assert os.path.isdir(path_output), 'missing "%s"' % path_output
+    if path_classes is not None:
+        path_classes = update_path(path_classes)
+        assert os.path.isfile(path_classes), 'missing "%s"' % path_classes
     return path_weights, path_anchors, path_classes, path_output
 
 

@@ -34,7 +34,7 @@ install:
   - python --version
   - pip --version
   - pip install -r requirements.txt
-  - pip install tox
+  - pip install tox coverage
   - pip freeze
   - dir
 

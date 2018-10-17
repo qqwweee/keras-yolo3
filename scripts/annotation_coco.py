@@ -35,7 +35,7 @@ def parse_arguments():
     return arg_params
 
 
-def chenge_category(cat):
+def change_category(cat):
     if cat >= 1 and cat <= 11:
         cat = cat - 1
     elif cat >= 13 and cat <= 25:
@@ -88,7 +88,7 @@ def _main(path_annot, path_images, path_output):
         if not os.path.isfile(path_img):
             logging.debug('missing image: %s', path_img)
             continue
-        cat = chenge_category(ant['category_id'])
+        cat = change_category(ant['category_id'])
         name_box_id[path_img].append([ant['bbox'], cat])
 
     name_out_list = os.path.basename(path_annot).replace('.json', '.txt')

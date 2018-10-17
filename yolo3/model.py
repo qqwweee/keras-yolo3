@@ -1,5 +1,8 @@
-"""YOLO_v3 Model Defined in Keras."""
+"""
+YOLO_v3 Model Defined in Keras.
+"""
 
+import os
 import logging
 from functools import wraps
 
@@ -493,7 +496,8 @@ def create_model_tiny(input_shape, anchors, num_classes, weights_path=None,
                         freeze_body=freeze_body, ignore_thresh=ignore_thresh)
 
 
-def data_generator(annotation_lines, batch_size, input_shape, anchors, nb_classes):
+def data_generator(annotation_lines, batch_size, input_shape, anchors,
+                   nb_classes, randomize=True):
     """ data generator for fit_generator """
     nb = len(annotation_lines)
     circ_i = 0
@@ -506,7 +510,7 @@ def data_generator(annotation_lines, batch_size, input_shape, anchors, nb_classe
         box_data = []
         for b in range(batch_size):
             image, box = get_random_data(annotation_lines[circ_i], input_shape,
-                                         random=True)
+                                         randomize=randomize)
             image_data.append(image)
             box_data.append(box)
             circ_i = (circ_i + 1) % nb
@@ -515,3 +519,94 @@ def data_generator(annotation_lines, batch_size, input_shape, anchors, nb_classe
         y_true = preprocess_true_boxes(box_data, input_shape,
                                        anchors, nb_classes)
         yield [image_data, *y_true], np.zeros(batch_size)
+
+
+def create_model_bottleneck(input_shape, anchors, num_classes, freeze_body=2,
+                            weights_path=None):
+    """create the training model"""
+    # K.clear_session()  # get a new session
+    image_input = Input(shape=(None, None, 3))
+    h, w = input_shape
+    num_anchors = len(anchors)
+
+    y_true = [Input(shape=(h // {0: 32, 1: 16, 2: 8}[l],
+                           w // {0: 32, 1: 16, 2: 8}[l],
+                           num_anchors // 3,
+                           num_classes + 5))
+              for l in range(3)]
+
+    LOSS_ARGUMENTS = {
+        'anchors': anchors,
+        'num_classes': num_classes,
+        'ignore_thresh': 0.5
+    }
+
+    model_body = yolo_body(image_input, num_anchors // 3, num_classes)
+    logging.info('Create YOLOv3 model with %i anchors and %i classes.',
+                 num_anchors, num_classes)
+
+    if weights_path is not None:
+        weights_path = update_path(weights_path)
+        if os.path.isfile(weights_path):
+            logging.warning('missing weights: %s', weights_path)
+        else:
+            logging.info('Load weights %s.', weights_path)
+            model_body.load_weights(weights_path, by_name=True, skip_mismatch=True)
+            if freeze_body in [1, 2]:
+                # Freeze darknet53 body or freeze all but 3 output layers.
+                num = (185, len(model_body.layers) - 3)[freeze_body - 1]
+                for i in range(num):
+                    model_body.layers[i].trainable = False
+                logging.info('Freeze the first %i layers of total %i layers.',
+                             num, len(model_body.layers))
+
+    # get output of second last layers and create bottleneck model of it
+    out1 = model_body.layers[246].output
+    out2 = model_body.layers[247].output
+    out3 = model_body.layers[248].output
+    model_bottleneck = Model([model_body.input, *y_true], [out1, out2, out3])
+
+    # create last layer model of last layers from yolo model
+    in0 = Input(shape=model_bottleneck.output[0].shape[1:].as_list())
+    in1 = Input(shape=model_bottleneck.output[1].shape[1:].as_list())
+    in2 = Input(shape=model_bottleneck.output[2].shape[1:].as_list())
+    last_out0 = model_body.layers[249](in0)
+    last_out1 = model_body.layers[250](in1)
+    last_out2 = model_body.layers[251](in2)
+    model_last = Model(inputs=[in0, in1, in2], outputs=[last_out0, last_out1, last_out2])
+    fn_loss = Lambda(yolo_loss, output_shape=(1,), name='yolo_loss',
+                     arguments=LOSS_ARGUMENTS)
+    model_loss_last = fn_loss([*model_last.output, *y_true])
+    last_layer_model = Model([in0, in1, in2, *y_true], model_loss_last)
+
+    fn_loss = Lambda(yolo_loss, output_shape=(1,), name='yolo_loss',
+                     arguments=LOSS_ARGUMENTS)
+    model_loss = fn_loss([*model_body.output, *y_true])
+    model = Model([model_body.input, *y_true], model_loss)
+
+    return model, model_bottleneck, last_layer_model
+
+
+def generator_bottleneck(annotation_lines, batch_size, input_shape, anchors, nb_classes,
+                         bottlenecks, randomize=False):
+    n = len(annotation_lines)
+    circ_i = 0
+    while True:
+        box_data = []
+        b0 = np.zeros((batch_size, bottlenecks[0].shape[1],
+                       bottlenecks[0].shape[2], bottlenecks[0].shape[3]))
+        b1 = np.zeros((batch_size, bottlenecks[1].shape[1],
+                       bottlenecks[1].shape[2], bottlenecks[1].shape[3]))
+        b2 = np.zeros((batch_size, bottlenecks[2].shape[1],
+                       bottlenecks[2].shape[2], bottlenecks[2].shape[3]))
+        for b in range(batch_size):
+            _, box = get_random_data(annotation_lines[circ_i], input_shape,
+                                     randomize=randomize, proc_img=False)
+            box_data.append(box)
+            b0[b] = bottlenecks[0][circ_i]
+            b1[b] = bottlenecks[1][circ_i]
+            b2[b] = bottlenecks[2][circ_i]
+            circ_i = (circ_i + 1) % n
+        box_data = np.array(box_data)
+        y_true = preprocess_true_boxes(box_data, input_shape, anchors, nb_classes)
+        yield [b0, b1, b2, *y_true], np.zeros(batch_size)
