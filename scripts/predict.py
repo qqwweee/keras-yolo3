@@ -132,8 +132,9 @@ def predict_video(yolo, path_video, path_output=None):
 
 
 def path_assers(path_weights, path_anchors, path_classes, path_output):
-    path_weights = update_path(path_weights)
-    assert os.path.isfile(path_weights), 'missing "%s"' % path_weights
+    if path_weights is not None:
+        path_weights = update_path(path_weights)
+        assert os.path.isfile(path_weights), 'missing "%s"' % path_weights
     path_anchors = update_path(path_anchors)
     assert os.path.isfile(path_anchors), 'missing "%s"' % path_anchors
     path_output = update_path(path_output)

@@ -4,10 +4,8 @@ import os
 import logging
 import warnings
 from functools import reduce, partial
-import multiprocessing.pool
 import multiprocessing as mproc
 
-from numba import jit
 from PIL import Image
 import numpy as np
 from matplotlib.colors import rgb_to_hsv, hsv_to_rgb
@@ -361,7 +359,7 @@ def data_generator(annotation_lines, batch_size, input_shape, anchors,
         box_data = []
 
         # create the list of lines to be loaded in batch
-        annot_lines = annotation_lines[circ_i:circ_i+batch_size]
+        annot_lines = annotation_lines[circ_i:circ_i + batch_size]
         batch_offset = (circ_i + batch_size) - nb_lines
         # chekck if the loaded batch size have sufficient size
         if batch_offset > 0:

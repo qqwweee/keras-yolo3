@@ -6,7 +6,6 @@ import os
 import logging
 from functools import wraps
 
-import numpy as np
 import tensorflow as tf
 from keras import backend as K
 from keras.layers import Conv2D, Add, ZeroPadding2D, UpSampling2D, Concatenate, MaxPooling2D
@@ -17,7 +16,7 @@ from keras.models import Model
 from keras.utils import multi_gpu_model
 from keras.regularizers import l2
 
-from yolo3.utils import compose, update_path, get_random_data
+from yolo3.utils import compose, update_path
 
 
 @wraps(Conv2D)
