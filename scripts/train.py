@@ -21,8 +21,8 @@ from keras.optimizers import Adam
 from keras.callbacks import TensorBoard, ModelCheckpoint, ReduceLROnPlateau, EarlyStopping
 
 sys.path += [os.path.abspath('.'), os.path.abspath('..')]
-from yolo3.model import create_model, create_model_tiny, data_generator
-from yolo3.utils import update_path, get_anchors, get_nb_classes
+from yolo3.model import create_model, create_model_tiny
+from yolo3.utils import update_path, get_anchors, get_nb_classes, data_generator
 from scripts.predict import arg_params_yolo, path_assers
 
 DEFAULT_CONFIG = {
@@ -31,6 +31,15 @@ DEFAULT_CONFIG = {
     'epochs_body': 50,
     'epochs_fine': 50,
     'valid-split': 0.1,
+    'generator': {
+        'jitter': 0.3,
+        'color_hue': 0.1,
+        'color_sat': 1.5,
+        'color_val': 1.5,
+        'proc_img': True,
+        'flip_horizontal': True,
+        'flip_vertical': False
+    }
 }
 NAME_CHECKPOINT = 'ep{epoch:03d}-loss{loss:.3f}-val_loss{val_loss:.3f}.h5'
 
@@ -89,7 +98,7 @@ def _main(path_annot, path_anchors, path_weights=None, path_output='.',
     _create_model = create_model_tiny if is_tiny_version else create_model
     name_prefix = 'tiny-' if is_tiny_version else ''
     model = _create_model(config['image-size'], anchors, nb_classes, freeze_body=2,
-                          weights_path=path_weights)
+                          weights_path=path_weights, gpu_num=gpu_num)
 
     tb_logging = TensorBoard(log_dir=path_output)
 
@@ -107,7 +116,8 @@ def _main(path_annot, path_anchors, path_weights=None, path_output='.',
     _yolo_loss = lambda y_true, y_pred: y_pred  # use custom yolo_loss Lambda layer.
     _data_generator = partial(data_generator, batch_size=config['batch-size'],
                               input_shape=config['image-size'],
-                              anchors=anchors, nb_classes=nb_classes)
+                              anchors=anchors, nb_classes=nb_classes,
+                              **config['generator'])
 
     if config['epochs_body'] > 0:
         model.compile(optimizer=Adam(lr=1e-3),
@@ -121,7 +131,7 @@ def _main(path_annot, path_anchors, path_weights=None, path_output='.',
                             validation_data=_data_generator(lines_valid),
                             validation_steps=max(1, num_val // config['batch-size']),
                             epochs=config['epochs_body'],
-                            use_multiprocessing=True,
+                            use_multiprocessing=False,
                             initial_epoch=0,
                             callbacks=[tb_logging, checkpoint])
         logging.info('Training took %f minutes', (time.time() - t_start) / 60.)
@@ -144,7 +154,7 @@ def _main(path_annot, path_anchors, path_weights=None, path_output='.',
                         validation_data=_data_generator(lines_valid),
                         validation_steps=max(1, num_val // config['batch-size']),
                         epochs=config['epochs_body'] + config['epochs_fine'],
-                        use_multiprocessing=True,
+                        use_multiprocessing=False,
                         initial_epoch=config['epochs_fine'],
                         callbacks=[tb_logging, checkpoint, reduce_lr, early_stopping])
     logging.info('Training took %f minutes', (time.time() - t_start) / 60.)

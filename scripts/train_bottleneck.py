@@ -19,8 +19,8 @@ from keras.optimizers import Adam
 from keras.callbacks import TensorBoard, ModelCheckpoint, ReduceLROnPlateau, EarlyStopping
 
 sys.path += [os.path.abspath('.'), os.path.abspath('..')]
-from yolo3.model import create_model_bottleneck, data_generator, generator_bottleneck
-from yolo3.utils import update_path, get_anchors, get_nb_classes
+from yolo3.model import create_model_bottleneck
+from yolo3.utils import update_path, get_anchors, get_nb_classes, data_generator, generator_bottleneck
 from scripts.train import parse_params, load_config, path_assers, load_training_lines
 
 
@@ -52,7 +52,8 @@ def _main(path_annot, path_anchors, path_weights=None, path_output='.',
 
     # make sure you know what you freeze
     model, bottleneck_model, last_layer_model = create_model_bottleneck(
-        config['image-size'], anchors, nb_classes, freeze_body=2, weights_path=path_weights)
+        config['image-size'], anchors, nb_classes, freeze_body=2,
+        weights_path=path_weights, gpu_num=gpu_num)
 
     log_tb = TensorBoard(log_dir=path_output)
     checkpoint = ModelCheckpoint(os.path.join(path_output, NAME_CHECKPOINT),
