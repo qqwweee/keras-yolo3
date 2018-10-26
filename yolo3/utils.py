@@ -4,7 +4,7 @@ from functools import reduce
 
 from PIL import Image
 import numpy as np
-from matplotlib.colors import rgb_to_hsv, hsv_to_rgb
+import cv2
 
 def compose(*funcs):
     """Compose arbitrarily many functions, evaluated left to right.
@@ -36,8 +36,11 @@ def rand(a=0, b=1):
 def get_random_data(annotation_line, input_shape, random=True, max_boxes=20, jitter=.3, hue=.1, sat=1.5, val=1.5, proc_img=True):
     '''random preprocessing for real-time data augmentation'''
     line = annotation_line.split()
-    image = Image.open(line[0])
-    iw, ih = image.size
+
+    # numpy array: BGR, 0-255
+    image = cv2.imread(line[0])
+    # height, width, channel
+    ih, iw, _ = image.shape
     h, w = input_shape
     box = np.array([np.array(list(map(int,box.split(',')))) for box in line[1:]])
 
@@ -50,9 +53,13 @@ def get_random_data(annotation_line, input_shape, random=True, max_boxes=20, jit
         dy = (h-nh)//2
         image_data=0
         if proc_img:
-            image = image.resize((nw,nh), Image.BICUBIC)
+            # resize
+            image = cv2.resize(image, (nw, nh), interpolation=cv2.INTER_AREA)
+            # convert into PIL Image object
+            image = Image.fromarray(image[:, :, ::-1])
             new_image = Image.new('RGB', (w,h), (128,128,128))
             new_image.paste(image, (dx, dy))
+            # convert into numpy array: RGB, 0-1
             image_data = np.array(new_image)/255.
 
         # correct boxes
@@ -75,32 +82,63 @@ def get_random_data(annotation_line, input_shape, random=True, max_boxes=20, jit
     else:
         nw = int(scale*w)
         nh = int(nw/new_ar)
-    image = image.resize((nw,nh), Image.BICUBIC)
+
+    # resize
+    image = cv2.resize(image, (nw, nh), interpolation=cv2.INTER_AREA)
+    # convert into PIL Image object
+    image = Image.fromarray(image[:, :, ::-1])
 
     # place image
     dx = int(rand(0, w-nw))
     dy = int(rand(0, h-nh))
     new_image = Image.new('RGB', (w,h), (128,128,128))
     new_image.paste(image, (dx, dy))
-    image = new_image
+    # convert into numpy array: BGR, 0-255
+    image = np.asarray(new_image)[:, :, ::-1]
 
-    # flip image or not
-    flip = rand()<.5
-    if flip: image = image.transpose(Image.FLIP_LEFT_RIGHT)
+    # horizontal flip (faster than cv2.flip())
+    h_flip = rand() < 0.5
+    if h_flip:
+        image = image[:, ::-1]
+
+    # vertical flip
+    v_flip = rand() < 0.5
+    if v_flip:
+        image = image[::-1]
+
+    # rotation augment
+    is_rot = False
+    if is_rot:
+        right = rand() < 0.5
+        if right:
+            image = image.transpose(1, 0, 2)[:, ::-1]
+        else:
+            image = image.transpose(1, 0, 2)[::-1]
 
     # distort image
-    hue = rand(-hue, hue)
+    img_hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
+    H = img_hsv[:, :, 0].astype(np.float32)
+    S = img_hsv[:, :, 1].astype(np.float32)
+    V = img_hsv[:, :, 2].astype(np.float32)
+
+    hue = rand(-hue, hue) * 179
+    H += hue
+    np.clip(H, a_min=0, a_max=179, out=H)
+
     sat = rand(1, sat) if rand()<.5 else 1/rand(1, sat)
+    S *= sat
+    np.clip(S, a_min=0, a_max=255, out=S)
+
     val = rand(1, val) if rand()<.5 else 1/rand(1, val)
-    x = rgb_to_hsv(np.array(image)/255.)
-    x[..., 0] += hue
-    x[..., 0][x[..., 0]>1] -= 1
-    x[..., 0][x[..., 0]<0] += 1
-    x[..., 1] *= sat
-    x[..., 2] *= val
-    x[x>1] = 1
-    x[x<0] = 0
-    image_data = hsv_to_rgb(x) # numpy array, 0 to 1
+    V *= val
+    np.clip(V, a_min=0, a_max=255, out=V)
+
+    img_hsv[:, :, 0] = H.astype(np.uint8)
+    img_hsv[:, :, 1] = S.astype(np.uint8)
+    img_hsv[:, :, 2] = V.astype(np.uint8)
+
+    # convert into numpy array: RGB, 0-1
+    image_data = cv2.cvtColor(img_hsv, cv2.COLOR_HSV2RGB) / 255.0
 
     # correct boxes
     box_data = np.zeros((max_boxes,5))
@@ -108,7 +146,20 @@ def get_random_data(annotation_line, input_shape, random=True, max_boxes=20, jit
         np.random.shuffle(box)
         box[:, [0,2]] = box[:, [0,2]]*nw/iw + dx
         box[:, [1,3]] = box[:, [1,3]]*nh/ih + dy
-        if flip: box[:, [0,2]] = w - box[:, [2,0]]
+        if h_flip:
+            box[:, [0,2]] = w - box[:, [2,0]]
+        if v_flip:
+            box[:, [1,3]] = h - box[:, [3,1]]
+        if is_rot:
+            if right:
+                tmp = box[:, [0, 2]]
+                box[:, [0,2]] = h - box[:, [3,1]]
+                box[:, [1,3]] = tmp
+            else:
+                tmp = box[:, [2, 0]]
+                box[:, [0,2]] = box[:, [1,3]]
+                box[:, [1,3]] = w - tmp
+
         box[:, 0:2][box[:, 0:2]<0] = 0
         box[:, 2][box[:, 2]>w] = w
         box[:, 3][box[:, 3]>h] = h
