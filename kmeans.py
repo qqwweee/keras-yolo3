@@ -16,15 +16,15 @@ class YOLO_Kmeans:
         box_area = np.reshape(box_area, (n, k))
 
         cluster_area = clusters[:, 0] * clusters[:, 1]
-        cluster_area = np.tile(cluster_area, [1, n])
+        cluster_area = np.tile(cluster_area, [ n,1])
         cluster_area = np.reshape(cluster_area, (n, k))
 
         box_w_matrix = np.reshape(boxes[:, 0].repeat(k), (n, k))
-        cluster_w_matrix = np.reshape(np.tile(clusters[:, 0], (1, n)), (n, k))
+        cluster_w_matrix = np.reshape(np.tile(clusters[:, 0], (n,1)), (n, k))
         min_w_matrix = np.minimum(cluster_w_matrix, box_w_matrix)
 
         box_h_matrix = np.reshape(boxes[:, 1].repeat(k), (n, k))
-        cluster_h_matrix = np.reshape(np.tile(clusters[:, 1], (1, n)), (n, k))
+        cluster_h_matrix = np.reshape(np.tile(clusters[:, 1], (n,1)), (n, k))
         min_h_matrix = np.minimum(cluster_h_matrix, box_h_matrix)
         inter_area = np.multiply(min_w_matrix, min_h_matrix)
 
