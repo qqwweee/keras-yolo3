@@ -97,3 +97,20 @@ If you want to use original pretrained weights for YOLOv3:
 6. The training strategy is for reference only. Adjust it according to your dataset and your goal. And add further strategy if needed.
 
 7. For speeding up the training process with frozen layers train_bottleneck.py can be used. It will compute the bottleneck features of the frozen model first and then only trains the last layers. This makes training on CPU possible in a reasonable time. See [this](https://blog.keras.io/building-powerful-image-classification-models-using-very-little-data.html) for more information on bottleneck features.
+
+
+
+
+
+启动WEB+VIDEO+KERAS+YOLO3+TENSORFLOW：
+1）进入docker镜像（映射路径+开启x11服务+开启显示环境+启动摄像机）
+sudo nvidia-docker run -ti --rm -v /tmp/.X11-unix:/tmp/.X11-unix:rw -p 8890:5000 -v /home/lab/keras-yolo3:/root/tf_yolo3 --env="QT_X11_NO_MITSHM=1" --env="DISPLAY" --device=/dev/video0 tensorflow/tf_keras_yolo3:v0 bash
+
+2）启动web后台服务
+/root/tf_yolo3下启动python app.py
+
+3)运行web网页端
+网址：172.20.53.159:8890/cv_camera
+
+4)注意事项
+服务器主机连接好usb摄像头

@@ -125,11 +125,19 @@ def create_model(input_shape, anchors, num_classes, load_pretrained=True, freeze
             for i in range(num): model_body.layers[i].trainable = False
             print('Freeze the first {} layers of total {} layers.'.format(num, len(model_body.layers)))
 
+    #model_loss = Lambda(yolo_loss, output_shape=(1,), name='yolo_loss',
+    #    arguments={'anchors': anchors, 'num_classes': num_classes, 'ignore_thresh': 0.5})(
+    #    [*model_body.output, *y_true])
+    #model = Model([model_body.input, *y_true], model_loss)
+    lst_tensor = [t for t in model_body.output]
+    lst_tensor_y_true = [y for y in y_true]
+    lst_tensor.extend(lst_tensor_y_true)
     model_loss = Lambda(yolo_loss, output_shape=(1,), name='yolo_loss',
-        arguments={'anchors': anchors, 'num_classes': num_classes, 'ignore_thresh': 0.5})(
-        [*model_body.output, *y_true])
-    model = Model([model_body.input, *y_true], model_loss)
-
+    arguments={'anchors': anchors, 'num_classes': num_classes, 'ignore_thresh': 0.5})(
+    lst_tensor)
+    model_tensor = [model_body.input]
+    model_tensor.extend(lst_tensor_y_true)
+    model = Model(model_tensor, model_loss)
     return model
 
 def create_tiny_model(input_shape, anchors, num_classes, load_pretrained=True, freeze_body=2,
@@ -155,10 +163,19 @@ def create_tiny_model(input_shape, anchors, num_classes, load_pretrained=True, f
             for i in range(num): model_body.layers[i].trainable = False
             print('Freeze the first {} layers of total {} layers.'.format(num, len(model_body.layers)))
 
+    #model_loss = Lambda(yolo_loss, output_shape=(1,), name='yolo_loss',
+    #    arguments={'anchors': anchors, 'num_classes': num_classes, 'ignore_thresh': 0.7})(
+     #   [*model_body.output, *y_true])
+    #model = Model([model_body.input, *y_true], model_loss)
+    lst_tensor = [t for t in model_body.output]
+    lst_tensor_y_true = [y for y in y_true]
+    lst_tensor.extend(lst_tensor_y_true)
     model_loss = Lambda(yolo_loss, output_shape=(1,), name='yolo_loss',
-        arguments={'anchors': anchors, 'num_classes': num_classes, 'ignore_thresh': 0.7})(
-        [*model_body.output, *y_true])
-    model = Model([model_body.input, *y_true], model_loss)
+    arguments={'anchors': anchors, 'num_classes': num_classes, 'ignore_thresh': 0.5})(
+    lst_tensor)
+    model_tensor = [model_body.input]
+    model_tensor.extend(lst_tensor_y_true)
+    model = Model(model_tensor, model_loss)
 
     return model
 
@@ -179,7 +196,7 @@ def data_generator(annotation_lines, batch_size, input_shape, anchors, num_class
         image_data = np.array(image_data)
         box_data = np.array(box_data)
         y_true = preprocess_true_boxes(box_data, input_shape, anchors, num_classes)
-        yield [image_data, *y_true], np.zeros(batch_size)
+        yield [image_data] + y_true, np.zeros(batch_size)
 
 def data_generator_wrapper(annotation_lines, batch_size, input_shape, anchors, num_classes):
     n = len(annotation_lines)
