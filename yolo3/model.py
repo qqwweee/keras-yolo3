@@ -17,17 +17,15 @@ from yolo3.utils import compose
 @wraps(Conv2D)
 def DarknetConv2D(*args, **kwargs):
     """Wrapper to set Darknet parameters for Convolution2D."""
-    darknet_conv_kwargs = {'kernel_regularizer': l2(5e-4)}
-    darknet_conv_kwargs['padding'] = 'valid' if kwargs.get('strides')==(2,2) else 'same'
-    darknet_conv_kwargs.update(kwargs)
-    return Conv2D(*args, **darknet_conv_kwargs)
+    kwargs.setdefault('kernel_regularizer', l2(5e-4))
+    kwargs.setdefault('padding', 'valid' if kwargs.get('strides')==(2,2) else 'same')
+    return Conv2D(*args, **kwargs)
 
 def DarknetConv2D_BN_Leaky(*args, **kwargs):
     """Darknet Convolution2D followed by BatchNormalization and LeakyReLU."""
-    no_bias_kwargs = {'use_bias': False}
-    no_bias_kwargs.update(kwargs)
+    kwargs.setdefault('use_bias', False)
     return compose(
-        DarknetConv2D(*args, **no_bias_kwargs),
+        DarknetConv2D(*args, **kwargs),
         BatchNormalization(),
         LeakyReLU(alpha=0.1))
 
