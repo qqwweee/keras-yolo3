@@ -34,10 +34,10 @@ install:
   - python --version
   - pip --version
   - pip install -r requirements.txt
-  - pip install tox coverage
-  - pip freeze
+  - pip install tox codecov
+  - pip list
   - dir
 
 test_script: tox
 
-on_success: coverage report
+on_success: codecov

@@ -14,11 +14,9 @@ matrix:
 
 install:
   - pip install -r requirements.txt
-  - pip install tox coverage
+  - pip install tox codecov
+  - pip list
 
 script: tox
 
-after_success: coverage report
-
-notifications:
-email: false
+after_success: codecov
