@@ -12,6 +12,8 @@ from keras.callbacks import TensorBoard, ModelCheckpoint, ReduceLROnPlateau, Ear
 from yolo3.model import preprocess_true_boxes, yolo_body, tiny_yolo_body, yolo_loss
 from yolo3.utils import get_random_data
 
+import argparse
+
 parser = argparse.ArgumentParser(description="Command Line Tool to Train YOLOv3")
 
 parser.add_argument('--annotation', default='train.txt', help='Path to .txt Annotation File', type=str)
@@ -19,10 +21,11 @@ parser.add_argument('--log_dir', default='logs/000/', help='Path to Log the Tens
 parser.add_argument('--class_path', default='model_data/voc_classes.txt', help='Path to Classes File', type=str)
 parser.add_argument('--anchor_path', default='model_data/yolo_anchors.txt', help='Path to Anchors File', type=str)
 parser.add_argument('--batch_size', default=64, help='Batch Size', type=int)
+parser.add_argument('--use_lrn', action='store_true', help='Whether to use LRN instead of BatchNormalization Layer')
 
 
 def _main(args):
-    annotation_path = args.annotaion
+    annotation_path = args.annotation
     log_dir = args.log_dir
     classes_path = args.class_path
     anchors_path = args.anchor_path
@@ -39,6 +42,8 @@ def _main(args):
     else:
         model = create_model(input_shape, anchors, num_classes,
             freeze_body=2, weights_path='model_data/yolo_weights.h5') # make sure you know what you freeze
+
+    model.summary()
 
     logging = TensorBoard(log_dir=log_dir)
     checkpoint = ModelCheckpoint(log_dir + 'ep{epoch:03d}-loss{loss:.3f}-val_loss{val_loss:.3f}.h5',
@@ -121,7 +126,7 @@ def create_model(input_shape, anchors, num_classes, load_pretrained=True, freeze
     y_true = [Input(shape=(h//{0:32, 1:16, 2:8}[l], w//{0:32, 1:16, 2:8}[l], \
         num_anchors//3, num_classes+5)) for l in range(3)]
 
-    model_body = yolo_body(image_input, num_anchors//3, num_classes)
+    model_body = yolo_body(image_input, num_anchors//3, num_classes, args.use_lrn)
     print('Create YOLOv3 model with {} anchors and {} classes.'.format(num_anchors, num_classes))
 
     if load_pretrained:
@@ -151,7 +156,7 @@ def create_tiny_model(input_shape, anchors, num_classes, load_pretrained=True, f
     y_true = [Input(shape=(h//{0:32, 1:16}[l], w//{0:32, 1:16}[l], \
         num_anchors//2, num_classes+5)) for l in range(2)]
 
-    model_body = tiny_yolo_body(image_input, num_anchors//2, num_classes)
+    model_body = tiny_yolo_body(image_input, num_anchors//2, num_classes, args.use_lrn)
     print('Create Tiny YOLOv3 model with {} anchors and {} classes.'.format(num_anchors, num_classes))
 
     if load_pretrained:
