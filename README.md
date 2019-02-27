@@ -93,7 +93,7 @@ optional arguments:
       --use_lrn             Whether to use LRN instead of BatchNormalization Layer
     ```
     
-    LRN.py from yolo3 directory is inspired from a previous commit under [fchollet/kera](https://github.com/keras-team/keras/commit/82353da4dc66bc702a74c6c233f3e16b7682f9e6)
+    LRN.py from yolo3 directory is inspired from a previous commit under [fchollet/keras](https://github.com/keras-team/keras/commit/82353da4dc66bc702a74c6c233f3e16b7682f9e6)
     
 
 If you want to use original pretrained weights for YOLOv3:  
