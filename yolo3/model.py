@@ -13,6 +13,9 @@ from keras.regularizers import l2
 
 from yolo3.utils import compose
 
+from yolo3.LRN import LRN2D
+
+use_lrn = False
 
 @wraps(Conv2D)
 def DarknetConv2D(*args, **kwargs):
@@ -26,10 +29,17 @@ def DarknetConv2D_BN_Leaky(*args, **kwargs):
     """Darknet Convolution2D followed by BatchNormalization and LeakyReLU."""
     no_bias_kwargs = {'use_bias': False}
     no_bias_kwargs.update(kwargs)
-    return compose(
-        DarknetConv2D(*args, **no_bias_kwargs),
-        BatchNormalization(),
-        LeakyReLU(alpha=0.1))
+
+    if use_lrn:
+        return compose(
+            DarknetConv2D(*args, **no_bias_kwargs),
+            LRN2D(),
+            LeakyReLU(alpha=0.1))
+    else:
+        return compose(
+            DarknetConv2D(*args, **no_bias_kwargs),
+            BatchNormalization(),
+            LeakyReLU(alpha=0.1))
 
 def resblock_body(x, num_filters, num_blocks):
     '''A series of resblocks starting with a downsampling Convolution2D'''
@@ -67,8 +77,11 @@ def make_last_layers(x, num_filters, out_filters):
     return x, y
 
 
-def yolo_body(inputs, num_anchors, num_classes):
+def yolo_body(inputs, num_anchors, num_classes, lrn):
     """Create YOLO_V3 model CNN body in Keras."""
+    global use_lrn
+    use_lrn = lrn
+
     darknet = Model(inputs, darknet_body(inputs))
     x, y1 = make_last_layers(darknet.output, 512, num_anchors*(num_classes+5))
 
@@ -86,8 +99,11 @@ def yolo_body(inputs, num_anchors, num_classes):
 
     return Model(inputs, [y1,y2,y3])
 
-def tiny_yolo_body(inputs, num_anchors, num_classes):
+def tiny_yolo_body(inputs, num_anchors, num_classes, lrn):
     '''Create Tiny YOLO_v3 model CNN body in keras.'''
+    global use_lrn
+    use_lrn = lrn
+    
     x1 = compose(
             DarknetConv2D_BN_Leaky(16, (3,3)),
             MaxPooling2D(pool_size=(2,2), strides=(2,2), padding='same'),
