@@ -3,20 +3,19 @@
 Class definition of YOLO_v3 style detection model on image and video
 """
 
-import colorsys
 import os
+import colorsys
+import numpy as np
 from timeit import default_timer as timer
 
-import numpy as np
+from PIL import Image, ImageFont, ImageDraw
+from keras.layers import Input
 from keras import backend as K
 from keras.models import load_model
-from keras.layers import Input
-from PIL import Image, ImageFont, ImageDraw
-
-from yolo3.model import yolo_eval, yolo_body, tiny_yolo_body
-from yolo3.utils import letterbox_image
-import os
 from keras.utils import multi_gpu_model
+
+from yolo3.utils import letterbox_image
+from yolo3.model import yolo_eval, yolo_body, tiny_yolo_body
 
 class YOLO(object):
     _defaults = {
@@ -126,10 +125,12 @@ class YOLO(object):
 
         print('Found {} boxes for {}'.format(len(out_boxes), 'img'))
 
-        font = ImageFont.truetype(font='font/FiraMono-Medium.otf',
+        font = ImageFont.truetype(font=self.font,
                     size=np.floor(3e-2 * image.size[1] + 0.5).astype('int32'))
         thickness = (image.size[0] + image.size[1]) // 300
 
+        out_coords = []
+        out_labels = []
         for i, c in reversed(list(enumerate(out_classes))):
             predicted_class = self.class_names[c]
             box = out_boxes[i]
@@ -140,10 +141,14 @@ class YOLO(object):
             label_size = draw.textsize(label, font)
 
             top, left, bottom, right = box
-            top = max(0, np.floor(top + 0.5).astype('int32'))
-            left = max(0, np.floor(left + 0.5).astype('int32'))
+            top    = max(0, np.floor(top + 0.5).astype('int32'))
+            left   = max(0, np.floor(left + 0.5).astype('int32'))
             bottom = min(image.size[1], np.floor(bottom + 0.5).astype('int32'))
-            right = min(image.size[0], np.floor(right + 0.5).astype('int32'))
+            right  = min(image.size[0], np.floor(right + 0.5).astype('int32'))
+
+            coords = np.array([left, top, right, bottom])
+            out_coords.append(coords)
+            out_labels.append(predicted_class)
             print(label, (left, top), (right, bottom))
 
             if top - label_size[1] >= 0:
@@ -164,7 +169,7 @@ class YOLO(object):
 
         end = timer()
         print(end - start)
-        return image
+        return image, out_boxes, out_scores, out_classes, np.array(out_coords), np.array(out_labels)
 
     def close_session(self):
         self.sess.close()
@@ -209,4 +214,3 @@ def detect_video(yolo, video_path, output_path=""):
         if cv2.waitKey(1) & 0xFF == ord('q'):
             break
     yolo.close_session()
-

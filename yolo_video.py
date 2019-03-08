@@ -64,6 +64,7 @@ if __name__ == '__main__':
     FLAGS = parser.parse_args()
 
     if FLAGS.image:
+        print(FLAGS)
         """
         Image detection mode, disregard any remaining command line arguments
         """
