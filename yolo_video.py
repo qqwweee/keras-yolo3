@@ -25,7 +25,7 @@ def get_image_files(dir):
             imgs.append(os.path.join(dir, file))
     return imgs
 
-def detect_imgdir(yolo, dir):
+def detect_imgdir(yolo, dir, output_txt=False):
     img_files = get_image_files(dir)
     save_dir = os.path.join(dir,'out')
     if not os.path.exists(save_dir): os.makedirs(save_dir)
@@ -37,9 +37,20 @@ def detect_imgdir(yolo, dir):
             continue
         else:
             fullpath = os.path.join(save_dir, os.path.basename(img))
-            r_image = yolo.detect_image(image, single_image=False)
-            r_image.save(fullpath,"JPEG")
-            print('save {}'.format(fullpath))
+            detections = list()
+            r_image = yolo.detect_image(image, single_image=False, output=detections)
+
+            if not output_txt:
+                r_image.save(fullpath,"JPEG")
+                print('save {}'.format(fullpath))
+            else:
+                basename = os.path.basename(img)  # eg. 123.jpg
+                txt_file = os.path.splitext(basename)[0]+'.txt'  # eg. 0001
+                txt_fullpath = os.path.join(save_dir, txt_file)
+                with open(txt_fullpath, 'w+') as the_file:
+                    full_text = '\n'.join(detections)
+                    the_file.write(full_text)
+
     yolo.close_session()
 
 FLAGS = None
@@ -79,6 +90,11 @@ if __name__ == '__main__':
         '--imgdir', type=str, default='',
         help='Image dir detection mode, will ignore all positional arguments'
     )
+
+    parser.add_argument(
+        '--txt', default=False, action="store_true",
+        help='Image dir detection will output txt files'
+    )
     '''
     Command line positional arguments -- for video detection mode
     '''
@@ -109,6 +125,6 @@ if __name__ == '__main__':
             print(" Ignoring remaining command line arguments: " + FLAGS.input + "," + FLAGS.output)
         detect_imgdir(YOLO(**vars(FLAGS)), FLAGS.imgdir)
     elif "input" in FLAGS:
-        detect_video(YOLO(**vars(FLAGS)), FLAGS.input, FLAGS.output)
+        detect_video(YOLO(**vars(FLAGS)), FLAGS.input, FLAGS.output, FLAGS.txt)
     else:
         print("Must specify at least video_input_path.  See usage with --help.")
