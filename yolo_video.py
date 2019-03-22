@@ -123,8 +123,8 @@ if __name__ == '__main__':
         print("Image directory mode")
         if "input" in FLAGS:
             print(" Ignoring remaining command line arguments: " + FLAGS.input + "," + FLAGS.output)
-        detect_imgdir(YOLO(**vars(FLAGS)), FLAGS.imgdir)
+        detect_imgdir(YOLO(**vars(FLAGS)), FLAGS.imgdir, FLAGS.txt)
     elif "input" in FLAGS:
-        detect_video(YOLO(**vars(FLAGS)), FLAGS.input, FLAGS.output, FLAGS.txt)
+        detect_video(YOLO(**vars(FLAGS)), FLAGS.input, FLAGS.output)
     else:
         print("Must specify at least video_input_path.  See usage with --help.")

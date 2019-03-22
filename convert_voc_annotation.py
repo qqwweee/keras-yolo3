@@ -33,7 +33,7 @@ def convert_annotation(file):#,list_file):
     return write_lines
 
 
-def modify_anno_files(input, imgdir):
+def create_train_txt(input, imgdir):
 
     files = scan_xml_files(input)
     lines_to_write = []
@@ -59,8 +59,8 @@ def modify_anno_files(input, imgdir):
 
 parser = argparse.ArgumentParser()
 parser.add_argument( "-t", dest="input_dir", action="store", type=str, required=False, 
-                  help="root directory of annotations", default='./image/' )
+                  help="directory of annotations", default='./image/' )
 parser.add_argument( "-i", dest="image_dir", action="store", type=str, required=True,
                   help="directory of image files")
 args = parser.parse_args()
-modify_anno_files(args.input_dir, args.image_dir)
+create_train_txt(args.input_dir, args.image_dir)
