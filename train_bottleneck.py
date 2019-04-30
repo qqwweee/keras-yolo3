@@ -2,6 +2,7 @@
 Retrain the YOLO model for your own dataset.
 """
 import os
+import time
 import numpy as np
 import keras.backend as K
 from keras.layers import Input, Lambda
@@ -14,13 +15,19 @@ from yolo3.utils import get_random_data
 
 
 def _main():
-    annotation_path = 'train.txt'
-    log_dir = 'logs/000/'
-    classes_path = 'model_data/coco_classes.txt'
+    annotation_path = 'train_data/sample/train.txt'
+    classes_path = 'train_data/sample/classes.txt'
     anchors_path = 'model_data/yolo_anchors.txt'
     class_names = get_classes(classes_path)
     num_classes = len(class_names)
     anchors = get_anchors(anchors_path)
+
+    # Make log_dir folder
+    # folder_hash = str(hash(time.time()))
+    # os.makedirs('logs', exist_ok=True)
+    # os.makedirs('logs/' + folder_hash, exist_ok=True)
+    # log_dir = 'logs/' + folder_hash
+    log_dir = 'logs/000'
 
     input_shape = (416,416) # multiple of 32, hw
 
