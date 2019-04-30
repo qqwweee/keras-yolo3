@@ -26,8 +26,8 @@ def _main():
     # folder_hash = str(hash(time.time()))
     # os.makedirs('logs', exist_ok=True)
     # os.makedirs('logs/' + folder_hash, exist_ok=True)
-    # log_dir = 'logs/' + folder_hash
-    log_dir = 'logs/000'
+    # log_dir = 'logs/' + folder_hash + '/'
+    log_dir = 'logs/000/'
 
     input_shape = (416,416) # multiple of 32, hw
 
