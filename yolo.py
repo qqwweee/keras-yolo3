@@ -21,6 +21,7 @@ from keras.utils import multi_gpu_model
 class YOLO(object):
     _defaults = {
         "model_path": 'model_data/yolo.h5',
+        "model_weights_path": 'model_data/darknet53_weights.h5',
         "anchors_path": 'model_data/yolo_anchors.txt',
         "classes_path": 'model_data/coco_classes.txt',
         "score" : 0.3,
@@ -60,6 +61,8 @@ class YOLO(object):
 
     def generate(self):
         model_path = os.path.expanduser(self.model_path)
+
+        print(model_path)
         assert model_path.endswith('.h5'), 'Keras model or weights must be a .h5 file.'
 
         # Load model, or construct model and load weights.

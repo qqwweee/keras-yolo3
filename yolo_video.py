@@ -26,7 +26,12 @@ if __name__ == '__main__':
     '''
     parser.add_argument(
         '--model', type=str,
-        help='path to model weight file, default ' + YOLO.get_defaults("model_path")
+        help='path to model file, default ' + YOLO.get_defaults("model_path")
+    )
+
+    parser.add_argument(
+        '--model_weights_path', type=str,
+        help='path to model weight file, default ' + YOLO.get_defaults("model_weights_path")
     )
 
     parser.add_argument(
