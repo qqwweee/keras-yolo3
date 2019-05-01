@@ -2,6 +2,7 @@
 Retrain the YOLO model for your own dataset.
 """
 import os
+import time
 import numpy as np
 import keras.backend as K
 from keras.layers import Input, Lambda
@@ -14,18 +15,24 @@ from yolo3.utils import get_random_data
 
 
 def _main():
-    annotation_path = 'train.txt'
-    log_dir = 'logs/000/'
-    classes_path = 'model_data/coco_classes.txt'
+    annotation_path = 'train_data/sample/train.txt'
+    classes_path = 'train_data/sample/classes.txt'
     anchors_path = 'model_data/yolo_anchors.txt'
     class_names = get_classes(classes_path)
     num_classes = len(class_names)
     anchors = get_anchors(anchors_path)
 
+    # Make log_dir folder
+    # folder_hash = str(hash(time.time()))
+    # os.makedirs('logs', exist_ok=True)
+    # os.makedirs('logs/' + folder_hash, exist_ok=True)
+    # log_dir = 'logs/' + folder_hash + '/'
+    log_dir = 'logs/000/'
+
     input_shape = (416,416) # multiple of 32, hw
 
     model, bottleneck_model, last_layer_model = create_model(input_shape, anchors, num_classes,
-            freeze_body=2, weights_path='model_data/yolo_weights.h5') # make sure you know what you freeze
+            freeze_body=2, weights_path='model_data/darknet53_weights.h5') # make sure you know what you freeze
 
     logging = TensorBoard(log_dir=log_dir)
     checkpoint = ModelCheckpoint(log_dir + 'ep{epoch:03d}-loss{loss:.3f}-val_loss{val_loss:.3f}.h5',
@@ -70,6 +77,7 @@ def _main():
                 epochs=30,
                 initial_epoch=0, max_queue_size=1)
         model.save_weights(log_dir + 'trained_weights_stage_0.h5')
+        model.save(log_dir + 'trained_model_stage_0.h5')
         
         # train last layers with random augmented data
         model.compile(optimizer=Adam(lr=1e-3), loss={
@@ -85,6 +93,7 @@ def _main():
                 initial_epoch=0,
                 callbacks=[logging, checkpoint])
         model.save_weights(log_dir + 'trained_weights_stage_1.h5')
+        model.save(log_dir + 'trained_model_stage_1.h5')
 
     # Unfreeze and continue training, to fine-tune.
     # Train longer if the result is not good.
@@ -104,6 +113,7 @@ def _main():
             initial_epoch=50,
             callbacks=[logging, checkpoint, reduce_lr, early_stopping])
         model.save_weights(log_dir + 'trained_weights_final.h5')
+        model.save(log_dir + 'trained_model_final.h5')
 
     # Further training if needed.
 
@@ -208,7 +218,7 @@ def bottleneck_generator(annotation_lines, batch_size, input_shape, anchors, num
         b1=np.zeros((batch_size,bottlenecks[1].shape[1],bottlenecks[1].shape[2],bottlenecks[1].shape[3]))
         b2=np.zeros((batch_size,bottlenecks[2].shape[1],bottlenecks[2].shape[2],bottlenecks[2].shape[3]))
         for b in range(batch_size):
-            _, box = get_random_data(annotation_lines[i], input_shape, random=False, proc_img=False)
+            _, box = get_random_data(annotation_lines[i], input_shape, random=False, proc_img=True)
             box_data.append(box)
             b0[b]=bottlenecks[0][i]
             b1[b]=bottlenecks[1][i]

@@ -26,7 +26,12 @@ if __name__ == '__main__':
     '''
     parser.add_argument(
         '--model', type=str,
-        help='path to model weight file, default ' + YOLO.get_defaults("model_path")
+        help='path to model file, default ' + YOLO.get_defaults("model_path")
+    )
+
+    parser.add_argument(
+        '--model_weights_path', type=str,
+        help='path to model weight file, default ' + YOLO.get_defaults("model_weights_path")
     )
 
     parser.add_argument(
@@ -52,7 +57,7 @@ if __name__ == '__main__':
     Command line positional arguments -- for video detection mode
     '''
     parser.add_argument(
-        "--input", nargs='?', type=str,required=False,default='./path2your_video',
+        "--input", nargs='?', type=str,required=False,default=0,
         help = "Video input path"
     )
 

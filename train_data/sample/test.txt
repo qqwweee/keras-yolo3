@@ -1,0 +1,11 @@
+/Users/chris/Developer/keras-yolo3/train_data/sample/72_color_image.jpg
+/Users/chris/Developer/keras-yolo3/train_data/sample/16_color_image.jpg
+/Users/chris/Developer/keras-yolo3/train_data/sample/33_color_image.jpg
+/Users/chris/Developer/keras-yolo3/train_data/sample/25_color_image.jpg
+/Users/chris/Developer/keras-yolo3/train_data/sample/57_color_image.jpg
+/Users/chris/Developer/keras-yolo3/train_data/sample/76_color_image.jpg
+/Users/chris/Developer/keras-yolo3/train_data/sample/67_color_image.jpg
+/Users/chris/Developer/keras-yolo3/train_data/sample/55_color_image.jpg
+/Users/chris/Developer/keras-yolo3/train_data/sample/70_color_image.jpg
+/Users/chris/Developer/keras-yolo3/train_data/sample/4_color_image.jpg
+/Users/chris/Developer/keras-yolo3/train_data/sample/26_color_image.jpg
