@@ -64,6 +64,7 @@ def _main():
                 initial_epoch=0,
                 callbacks=[logging, checkpoint])
         model.save_weights(log_dir + 'trained_weights_stage_1.h5')
+        model.save(log_dir + 'trained_model_stage_1.h5')
 
     # Unfreeze and continue training, to fine-tune.
     # Train longer if the result is not good.
@@ -83,6 +84,7 @@ def _main():
             initial_epoch=50,
             callbacks=[logging, checkpoint, reduce_lr, early_stopping])
         model.save_weights(log_dir + 'trained_weights_final.h5')
+        model.save(log_dir + 'trained_model_final.h5')
 
     # Further training if needed.
 
