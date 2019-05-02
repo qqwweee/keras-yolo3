@@ -21,10 +21,22 @@ def letterbox_image(image, size):
     '''resize image with unchanged aspect ratio using padding'''
     iw, ih = image.size
     w, h = size
-    scale = min(w/iw, h/ih)
+
+    print("w: ", iw)
+    print("h: ", ih)
+
+    #scale = min(w/iw, h/ih)
+    scale = min(w/float(iw), h/float(ih))
+
+    print("Iw: ", iw)
+    print("Ih: ", ih)
+    print("scale: ", scale)
+
     nw = int(iw*scale)
     nh = int(ih*scale)
 
+    print(nw)
+    print(nh)
     image = image.resize((nw,nh), Image.BICUBIC)
     new_image = Image.new('RGB', size, (128,128,128))
     new_image.paste(image, ((w-nw)//2, (h-nh)//2))
@@ -39,7 +51,7 @@ def get_random_data(annotation_line, input_shape, random=True, max_boxes=20, jit
     image = Image.open(line[0])
     iw, ih = image.size
     h, w = input_shape
-    box = np.array([np.array(list(map(int,box.split(',')))) for box in line[1:]])
+    box = np.array([np.array(list(map(float, box.split(',')))) for box in line[1:]])
 
     if not random:
         # resize image

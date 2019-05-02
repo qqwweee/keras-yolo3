@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+ 
 """
 Class definition of YOLO_v3 style detection model on image and video
 """
@@ -18,13 +19,21 @@ from yolo3.utils import letterbox_image
 import os
 from keras.utils import multi_gpu_model
 
+sensor_height = 60
+real_height = {"car": 1700}
+focal_length = 20 
+
 class YOLO(object):
     _defaults = {
-        "model_path": 'model_data/yolo.h5',
+        # "model_path": 'model_data/ep077-loss64.970-val_loss65.846.h5',
+        # "model_path": 'model_data/ep009-loss88.777-val_loss89.150.h5',
+        "model_path": '000ep098-loss60.736-val_loss62.252.h5',
+	# "model_path": '003ep043-loss26.187-val_loss26.582.h5',
+	# "model_path": 'model_data/yolo.h5',
         "anchors_path": 'model_data/yolo_anchors.txt',
-        "classes_path": 'model_data/coco_classes.txt',
-        "score" : 0.3,
-        "iou" : 0.45,
+        "classes_path": 'model_data/deep_drive_classes.txt',
+        "score" : 0.5,
+        "iou" : 0.5,
         "model_image_size" : (416, 416),
         "gpu_num" : 1,
     }
@@ -60,6 +69,7 @@ class YOLO(object):
 
     def generate(self):
         model_path = os.path.expanduser(self.model_path)
+        print(self.model_path)
         assert model_path.endswith('.h5'), 'Keras model or weights must be a .h5 file.'
 
         # Load model, or construct model and load weights.
@@ -99,6 +109,39 @@ class YOLO(object):
                 score_threshold=self.score, iou_threshold=self.iou)
         return boxes, scores, classes
 
+    def get_predictions(self, image):
+        start = timer()
+
+        if self.model_image_size != (None, None):
+            assert self.model_image_size[0]%32 == 0, 'Multiples of 32 required'
+            assert self.model_image_size[1]%32 == 0, 'Multiples of 32 required'
+            boxed_image = letterbox_image(image, tuple(reversed(self.model_image_size)))
+        else:
+            new_image_size = (image.width - (image.width % 32),
+                              image.height - (image.height % 32))
+            boxed_image = letterbox_image(image, new_image_size)
+        image_data = np.array(boxed_image, dtype='float32')
+
+        image_data /= 255.
+        image_data = np.expand_dims(image_data, 0)  # Add batch dimension.
+
+        out_boxes, out_scores, out_classes = self.sess.run(
+            [self.boxes, self.scores, self.classes],
+            feed_dict={
+                self.yolo_model.input: image_data,
+                self.input_image_shape: [image.size[1], image.size[0]],
+                K.learning_phase(): 0
+            })
+
+        predictions = []
+        for i, c in reversed(list(enumerate(out_classes))):
+            predicted_class = self.class_names[c - 1]
+            box = out_boxes[i]
+            score = out_scores[i]
+            predictions.append((predicted_class, box, score))
+
+        return predictions
+
     def detect_image(self, image):
         start = timer()
 
@@ -124,28 +167,39 @@ class YOLO(object):
                 K.learning_phase(): 0
             })
 
+        print(out_classes)
         print('Found {} boxes for {}'.format(len(out_boxes), 'img'))
 
         font = ImageFont.truetype(font='font/FiraMono-Medium.otf',
-                    size=np.floor(3e-2 * image.size[1] + 0.5).astype('int32'))
-        thickness = (image.size[0] + image.size[1]) // 300
+                    size=np.floor(1e-2 * image.size[1]).astype('int32'))
+        thickness = (image.size[0] + image.size[1]) // 700
+        print('Thickness: ', thickness)
 
         for i, c in reversed(list(enumerate(out_classes))):
-            predicted_class = self.class_names[c]
+            predicted_class = self.class_names[c - 1]
+            #predicted_class = self.class_names[c - 1]
             box = out_boxes[i]
             score = out_scores[i]
 
-            label = '{} {:.2f}'.format(predicted_class, score)
-            draw = ImageDraw.Draw(image)
-            label_size = draw.textsize(label, font)
 
             top, left, bottom, right = box
             top = max(0, np.floor(top + 0.5).astype('int32'))
             left = max(0, np.floor(left + 0.5).astype('int32'))
             bottom = min(image.size[1], np.floor(bottom + 0.5).astype('int32'))
             right = min(image.size[0], np.floor(right + 0.5).astype('int32'))
-            print(label, (left, top), (right, bottom))
+            distance = 0.0
+            if predicted_class in real_height:
+                distance = (focal_length * real_height[predicted_class] * image.height) / ((bottom - top) * sensor_height) 	
+                distance = distance/1000
 
+            print(distance)
+            label = '{} {:.2f}'.format(predicted_class, score)
+            if distance > 0:
+                label = '{} {:.2f} {:.2f}m'.format(predicted_class, score, distance)
+            draw = ImageDraw.Draw(image)
+            label_size = draw.textsize(label, font)
+
+            print(label, (left, top), (right, bottom))
             if top - label_size[1] >= 0:
                 text_origin = np.array([left, top - label_size[1]])
             else:
@@ -165,7 +219,6 @@ class YOLO(object):
         end = timer()
         print(end - start)
         return image
-
     def close_session(self):
         self.sess.close()
 
@@ -174,7 +227,8 @@ def detect_video(yolo, video_path, output_path=""):
     vid = cv2.VideoCapture(video_path)
     if not vid.isOpened():
         raise IOError("Couldn't open webcam or video")
-    video_FourCC    = int(vid.get(cv2.CAP_PROP_FOURCC))
+    # video_FourCC    = int(vid.get(cv2.CAP_PROP_FOURCC))
+    video_FourCC    = cv2.VideoWriter_fourcc(*'MP4V')
     video_fps       = vid.get(cv2.CAP_PROP_FPS)
     video_size      = (int(vid.get(cv2.CAP_PROP_FRAME_WIDTH)),
                         int(vid.get(cv2.CAP_PROP_FRAME_HEIGHT)))
@@ -188,9 +242,12 @@ def detect_video(yolo, video_path, output_path=""):
     prev_time = timer()
     while True:
         return_value, frame = vid.read()
+        if frame is None:
+            break
         image = Image.fromarray(frame)
         image = yolo.detect_image(image)
         result = np.asarray(image)
+        '''
         curr_time = timer()
         exec_time = curr_time - prev_time
         prev_time = curr_time
@@ -201,12 +258,17 @@ def detect_video(yolo, video_path, output_path=""):
             fps = "FPS: " + str(curr_fps)
             curr_fps = 0
         cv2.putText(result, text=fps, org=(3, 15), fontFace=cv2.FONT_HERSHEY_SIMPLEX,
-                    fontScale=0.50, color=(255, 0, 0), thickness=2)
+                    fontScale=0.30, color=(255, 0, 0), thickness=1)
         cv2.namedWindow("result", cv2.WINDOW_NORMAL)
         cv2.imshow("result", result)
+	'''
         if isOutput:
             out.write(result)
         if cv2.waitKey(1) & 0xFF == ord('q'):
             break
+    
+    vid.release()
+    out.release()
+    cv2.destroyAllWindows()
     yolo.close_session()
 
