@@ -25,16 +25,16 @@ A [Keras](https://keras.io/) implementation of YOLOv3 ([Tensorflow backend](http
 2. Convert the Darknet YOLO model to a Keras model.
     ```bash
     python3 scripts/convert_weights.py \
-        --config_path model_data/yolo.cfg \
-        --weights_path model_data/yolo.weights \
-        --output_path model_data/yolo.h5
+        --config_path ./model_data/yolo.cfg \
+        --weights_path ./model_data/yolo.weights \
+        --output_path ./model_data/yolo.h5
     ```
 3. Run YOLO detection.
     ```bash
     python3 scripts/predict.py \
-       --path_weights model_data/yolo.h5 \
-       --path_anchors model_data/yolo_anchors.txt \
-       --path_classes model_data/coco_classes.txt \
+       --path_weights ./model_data/yolo.h5 \
+       --path_anchors ./model_data/yolo_anchors.txt \
+       --path_classes ./model_data/coco_classes.txt \
        --path_output ./results \
        --path_image dog.jpg \
        --path_video person.mp4

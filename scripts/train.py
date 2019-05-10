@@ -2,10 +2,11 @@
 Retrain the YOLO model for your own dataset.
 
 >> python train.py \
-       --path_annot model_data/VOC_2007_train.txt \
-       --path_weights model_data/tiny-yolo.h5 \
-       --path_anchors model_data/tiny-yolo_anchors.txt \
-       --path_output model_data
+       --path_annot ./model_data/VOC_2007_train.txt \
+       --path_weights ./model_data/tiny-yolo.h5 \
+       --path_anchors ./model_data/tiny-yolo_anchors.txt \
+       --path_classes ./model_data/coco_classes.txt \
+       --path_output ./model_data
 """
 
 import os
@@ -103,8 +104,10 @@ def _main(path_annot, path_anchors, path_weights=None, path_output='.',
     tb_logging = TensorBoard(log_dir=path_output)
 
     checkpoint = ModelCheckpoint(os.path.join(path_output, NAME_CHECKPOINT),
-                                 monitor='val_loss', save_weights_only=True,
-                                 save_best_only=True, period=3)
+                                 monitor='val_loss',
+                                 save_weights_only=True,
+                                 save_best_only=True,
+                                 period=3)
     reduce_lr = ReduceLROnPlateau(monitor='val_loss', factor=0.1, patience=3, verbose=1)
     early_stopping = EarlyStopping(monitor='val_loss', min_delta=0, patience=10, verbose=1)
 
@@ -114,9 +117,11 @@ def _main(path_annot, path_anchors, path_weights=None, path_output='.',
     # Train with frozen layers first, to get a stable loss.
     # Adjust num epochs to your dataset. This step is enough to obtain a not bad model.
     _yolo_loss = lambda y_true, y_pred: y_pred  # use custom yolo_loss Lambda layer.
-    _data_generator = partial(data_generator, batch_size=config['batch-size'],
+    _data_generator = partial(data_generator,
+                              batch_size=config['batch-size'],
                               input_shape=config['image-size'],
-                              anchors=anchors, nb_classes=nb_classes,
+                              anchors=anchors,
+                              nb_classes=nb_classes,
                               **config['generator'])
 
     if config['epochs_body'] > 0:

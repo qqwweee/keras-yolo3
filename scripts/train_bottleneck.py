@@ -2,10 +2,11 @@
 Retrain the YOLO model for your own dataset.
 
 >> python train_bottleneck.py \
-       --path_annot model_data/VOC_2007_train.txt \
-       --path_weights model_data/yolo.h5 \
-       --path_anchors model_data/yolo_anchors.txt \
-       --path_output model_data
+       --path_annot ./model_data/VOC_2007_train.txt \
+       --path_weights ./model_data/tiny-yolo.h5 \
+       --path_anchors ./model_data/tiny-yolo_anchors.txt \
+       --path_classes ./model_data/coco_classes.txt \
+       --path_output ./model_data
 """
 
 import os
@@ -68,20 +69,23 @@ def _main(path_annot, path_anchors, path_weights=None, path_output='.',
     # Train with frozen layers first, to get a stable loss.
     # Adjust num epochs to your dataset. This step is enough to obtain a not bad model.
     _yolo_loss = lambda y_true, y_pred: y_pred  # use custom yolo_loss Lambda layer.
-    _data_gene_bottleneck = partial(generator_bottleneck, batch_size=config['batch-size_bottlenecks'],
-                                    input_shape=config['image-size'], anchors=anchors,
+    _data_gene_bottleneck = partial(generator_bottleneck,
+                                    batch_size=config['batch-size_bottlenecks'],
+                                    input_shape=config['image-size'],
+                                    anchors=anchors,
                                     nb_classes=nb_classes)
     _data_generator = partial(data_generator,
                               input_shape=config['image-size'],
-                              anchors=anchors, nb_classes=nb_classes)
+                              anchors=anchors,
+                              nb_classes=nb_classes)
     if config['epochs_bottlenecks'] > 0 or config['epochs_body'] > 0:
         # perform bottleneck training
         path_bottlenecks = os.path.join(path_output, NAME_BOTTLENECKS)
         if not os.path.isfile(path_bottlenecks) or config['recompute-bottlenecks']:
             logging.info('calculating bottlenecks')
             bottlenecks = bottleneck_model.predict_generator(
-                _data_generator(lines_train + lines_valid, randomize=False,
-                                batch_size=config['batch-size_bottlenecks']),
+                _data_generator(lines_train + lines_valid,
+                                randomize=False, batch_size=config['batch-size_bottlenecks']),
                 steps=(len(lines_train + lines_valid) // config['batch-size_bottlenecks']) + 1,
                 max_queue_size=1)
             np.savez(path_bottlenecks, bot0=bottlenecks[0], bot1=bottlenecks[1], bot2=bottlenecks[2])

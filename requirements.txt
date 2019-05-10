@@ -6,3 +6,4 @@ tensorflow>=1.4.0
 pandas
 opencv-python
 tqdm
+pathos

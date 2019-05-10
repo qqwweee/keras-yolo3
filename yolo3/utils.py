@@ -3,11 +3,13 @@
 import os
 import logging
 import warnings
+import gc
 from functools import reduce, partial
 import multiprocessing as mproc
 
 from PIL import Image
 import numpy as np
+from pathos.multiprocessing import ProcessPool
 from matplotlib.colors import rgb_to_hsv, hsv_to_rgb
 
 NB_THREADS = max(1, int(mproc.cpu_count() * 0.9))
@@ -216,9 +218,12 @@ def get_random_data(annotation_line, input_shape, randomize=True, max_boxes=20,
     box_data = np.zeros((max_boxes, 5))
     if len(box) > 0:
         np.random.shuffle(box)
-        box_data[:len(box)] = randomize_bbox(box, max_boxes,
-                                             flip_horizontal, flip_vertical,
-                                             iw, ih, h, w, nw, nh, dx, dy)
+        # NOTE: due to some randomisation some boxed can be out and fitered out
+        rand_data = randomize_bbox(box, max_boxes, flip_horizontal, flip_vertical,
+                                   iw, ih, h, w, nw, nh, dx, dy)
+        if len(rand_data) < len(box):
+            logging.debug('Warning: some generated boxes was filtered out')
+        box_data[:len(rand_data)] = rand_data
 
     return image_data, box_data
 
@@ -335,21 +340,27 @@ def preprocess_true_boxes(true_boxes, input_shape, anchors, num_classes):
     return y_true
 
 
-def data_generator(annotation_lines, batch_size, input_shape, anchors,
-                   nb_classes, randomize=True, max_boxes=20,
-                   jitter=0.3, color_hue=0.1, color_sat=1.5, color_val=1.5, proc_img=True,
-                   flip_horizontal=True, flip_vertical=False, nb_jobs=NB_THREADS):
+def data_generator(annotation_lines, batch_size, input_shape, anchors, nb_classes,
+                   randomize=True, max_boxes=20, jitter=0.3, proc_img=True,
+                   color_hue=0.1, color_sat=1.5, color_val=1.5,
+                   flip_horizontal=True, flip_vertical=False, nb_jobs=1):
     """ data generator for fit_generator """
     nb_lines = len(annotation_lines)
     circ_i = 0
     if nb_lines == 0 or batch_size <= 0:
         return None
-    if nb_jobs > 1:
-        pool = mproc.Pool(nb_jobs)
-    _wrap_rand_data = partial(get_random_data, input_shape=input_shape, randomize=randomize,
-                              max_boxes=max_boxes, jitter=jitter, proc_img=proc_img,
-                              hue=color_hue, sat=color_sat, val=color_val,
-                              flip_horizontal=flip_horizontal, flip_vertical=flip_vertical)
+    pool = ProcessPool(nb_jobs) if nb_jobs > 1 else None
+    _wrap_rand_data = partial(get_random_data,
+                              input_shape=input_shape,
+                              randomize=randomize,
+                              max_boxes=max_boxes,
+                              jitter=jitter,
+                              proc_img=proc_img,
+                              hue=color_hue,
+                              sat=color_sat,
+                              val=color_val,
+                              flip_horizontal=flip_horizontal,
+                              flip_vertical=flip_vertical)
 
     while True:
         if circ_i < batch_size:
@@ -365,7 +376,7 @@ def data_generator(annotation_lines, batch_size, input_shape, anchors,
         if batch_offset > 0:
             annot_lines += annotation_lines[:batch_offset]
         # multiprocessing loading of batch data
-        map_process = pool.imap_unordered if nb_jobs > 1 else map
+        map_process = pool.imap if pool else map
         for image, box in map_process(_wrap_rand_data, annot_lines):
             image_data.append(image)
             box_data.append(box)
@@ -377,10 +388,12 @@ def data_generator(annotation_lines, batch_size, input_shape, anchors,
         y_true = preprocess_true_boxes(box_data, input_shape,
                                        anchors, nb_classes)
         yield [image_data, *y_true], np.zeros(batch_size)
+        gc.collect()
 
-    if nb_jobs > 1:
+    if pool:
         pool.close()
         pool.join()
+        pool.clear()
 
 
 def generator_bottleneck(annotation_lines, batch_size, input_shape, anchors, nb_classes,
