@@ -39,12 +39,13 @@ def detect_img(yolo):
             print('Open Error! Try again!')
             continue
         else:
-            r_image = yolo.detect_image(image)
+            r_image, result = yolo.detect_image(image)
             r_image.save(
                 os.path.join(
                     image_output_dir,
                     img_basename + ".jpg",
                 ))
+            print(result)
 
     yolo.close_session()
 

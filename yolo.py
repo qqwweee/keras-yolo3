@@ -124,6 +124,17 @@ class YOLO(object):
                 K.learning_phase(): 0
             })
 
+        result = []
+
+        for box, score, cls in zip(out_boxes, out_scores, out_classes):
+            predicted_class = self.class_names[cls]
+
+            result.append({
+                "bbox": np.array(box).astype(int).tolist(),
+                "score": np.asscalar(score),
+                "class": predicted_class,
+            })
+
         print('Found {} boxes for {}'.format(len(out_boxes), 'img'))
 
         font = ImageFont.truetype(font='font/FiraMono-Medium.otf',
@@ -164,7 +175,7 @@ class YOLO(object):
 
         end = timer()
         print(end - start)
-        return image
+        return image, result
 
     def close_session(self):
         self.sess.close()
@@ -209,4 +220,3 @@ def detect_video(yolo, video_path, output_path=""):
         if cv2.waitKey(1) & 0xFF == ord('q'):
             break
     yolo.close_session()
-
