@@ -186,8 +186,8 @@ def detect_video(yolo, video_path, output_path=""):
     curr_fps = 0
     fps = "FPS: ??"
     prev_time = timer()
-    while True:
-        return_value, frame = vid.read()
+    return_value, frame = vid.read()
+    while return_value:
         image = Image.fromarray(frame)
         image = yolo.detect_image(image)
         result = np.asarray(image)
@@ -208,5 +208,6 @@ def detect_video(yolo, video_path, output_path=""):
             out.write(result)
         if cv2.waitKey(1) & 0xFF == ord('q'):
             break
+        return_value, frame = vid.read()
     yolo.close_session()
 
