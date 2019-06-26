@@ -20,16 +20,15 @@ from keras.utils import multi_gpu_model
 
 class YOLO(object):
     _defaults = {
-        "model_path": 'yolo.h5',
+        "model_path": 'model_data/trained_weights_stage.h5',
         "anchors_path": 'model_data/yolo_anchors.txt',
-        "classes_path": 'model_data/coco_classes.txt',
+        "classes_path": 'model_data/voc_classes.txt',
         "score" : 0.3,
         "iou" : 0.45,
         "model_image_size" : (416, 416),
         "gpu_num" : 1,
     }
-    csv_file = open('/testfile.txt','w') # Crea archivo de texto
-    csv_writer = csv.writer(csv_file, delimiter=',') # establece archivo de texto como csv
+
     @classmethod
     def get_defaults(cls, n):
         if n in cls._defaults:
@@ -104,13 +103,13 @@ class YOLO(object):
         start = timer()
         lista=[] # Lista en la que se captura la info de la imagen
 
-        file_exists = os.path.isfile('../testfile.txt') 
- 
+        
+        file_exists = os.path.isfile('../testfile.txt')  
         if file_exists:
             file = open("../testfile.txt", "r+")
         else:
             file = open("../testfile.txt", "w")
-    
+        
         if self.model_image_size != (None, None):
             assert self.model_image_size[0]%32 == 0, 'Multiples of 32 required'
             assert self.model_image_size[1]%32 == 0, 'Multiples of 32 required'
