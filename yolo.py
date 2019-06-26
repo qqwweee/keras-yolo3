@@ -173,7 +173,7 @@ class YOLO(object):
             draw.text(text_origin, label, fill=(0, 0, 0), font=font)
             del draw
 
-        file.close()
+        file.close() # Cierra el archivo
         end = timer()
         print(end - start)
         return image
@@ -220,6 +220,5 @@ def detect_video(yolo, video_path, output_path=""):
             out.write(result)
         if cv2.waitKey(1) & 0xFF == ord('q'):
             break
-   file.close() # Cierra el archivo
     yolo.close_session()
 
