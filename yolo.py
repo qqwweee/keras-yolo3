@@ -2,9 +2,9 @@
 """
 Class definition of YOLO_v3 style detection model on image and video
 """
- 
+import os.path # Libreria para exportar archivo csv
 import colorsys
-import os
+import os 
 from timeit import default_timer as timer
 
 import numpy as np
@@ -28,7 +28,8 @@ class YOLO(object):
         "model_image_size" : (416, 416),
         "gpu_num" : 1,
     }
-
+    csv_file = open('/testfile.txt','w') # Crea archivo de texto
+    csv_writer = csv.writer(csv_file, delimiter=',') # establece archivo de texto como csv
     @classmethod
     def get_defaults(cls, n):
         if n in cls._defaults:
@@ -101,7 +102,15 @@ class YOLO(object):
 
     def detect_image(self, image):
         start = timer()
+        lista=[] # Lista en la que se captura la info de la imagen
 
+        file_exists = os.path.isfile('../testfile.txt') 
+ 
+        if file_exists:
+            file = open("../testfile.txt", "r+")
+        else:
+            file = open("../testfile.txt", "w")
+    
         if self.model_image_size != (None, None):
             assert self.model_image_size[0]%32 == 0, 'Multiples of 32 required'
             assert self.model_image_size[1]%32 == 0, 'Multiples of 32 required'
@@ -145,7 +154,8 @@ class YOLO(object):
             bottom = min(image.size[1], np.floor(bottom + 0.5).astype('int32'))
             right = min(image.size[0], np.floor(right + 0.5).astype('int32'))
             print(label, (left, top), (right, bottom))
-
+            lista = [predicted_class, score, left, top, right, bottom] # Llena la lista con los valores de la imagen
+            file.write(','.join(map(str,lista))) # Escribe fila con los datos en el archivo
             if top - label_size[1] >= 0:
                 text_origin = np.array([left, top - label_size[1]])
             else:
@@ -163,6 +173,7 @@ class YOLO(object):
             draw.text(text_origin, label, fill=(0, 0, 0), font=font)
             del draw
 
+        file.close()
         end = timer()
         print(end - start)
         return image
@@ -209,5 +220,6 @@ def detect_video(yolo, video_path, output_path=""):
             out.write(result)
         if cv2.waitKey(1) & 0xFF == ord('q'):
             break
+   file.close() # Cierra el archivo
     yolo.close_session()
 
