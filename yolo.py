@@ -2,7 +2,7 @@
 """
 Class definition of YOLO_v3 style detection model on image and video
 """
-
+ 
 import colorsys
 import os
 from timeit import default_timer as timer
@@ -20,9 +20,9 @@ from keras.utils import multi_gpu_model
 
 class YOLO(object):
     _defaults = {
-        "model_path": 'model_data/weights1epoch.h5',
+        "model_path": 'yolo.h5',
         "anchors_path": 'model_data/yolo_anchors.txt',
-        "classes_path": 'model_data/voc_classes.txt',
+        "classes_path": 'model_data/coco_classes.txt',
         "score" : 0.3,
         "iou" : 0.45,
         "model_image_size" : (416, 416),
@@ -150,7 +150,8 @@ class YOLO(object):
                 text_origin = np.array([left, top - label_size[1]])
             else:
                 text_origin = np.array([left, top + 1])
-
+            end = timer()
+            print(end - start)
             # My kingdom for a good redistributable image drawing library.
             for i in range(thickness):
                 draw.rectangle(
