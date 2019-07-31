@@ -9,10 +9,15 @@ import multiprocessing as mproc
 
 from PIL import Image
 import numpy as np
+import pandas as pd
 from pathos.multiprocessing import ProcessPool
 from matplotlib.colors import rgb_to_hsv, hsv_to_rgb
 
-NB_THREADS = max(1, int(mproc.cpu_count() * 0.9))
+CPU_COUNT = mproc.cpu_count()
+
+
+def nb_threads(ratio):
+    return max(1, int(CPU_COUNT * ratio))
 
 
 def update_path(my_path, max_depth=5, abs_path=True):
@@ -31,10 +36,12 @@ def update_path(my_path, max_depth=5, abs_path=True):
     elif my_path.startswith('~'):
         return os.path.expanduser(my_path)
 
+    up_path = my_path
     for _ in range(max_depth):
-        if os.path.exists(my_path):
+        if os.path.exists(up_path):
+            my_path = up_path
             break
-        my_path = os.path.join('..', my_path)
+        up_path = os.path.join('..', up_path)
 
     if abs_path:
         my_path = os.path.abspath(my_path)
@@ -57,7 +64,7 @@ def letterbox_image(image, size):
     """resize image with unchanged aspect ratio using padding"""
     iw, ih = image.size
     w, h = size
-    scale = min(w / iw, h / ih)
+    scale = min(float(w) / iw, float(h) / ih)
     nw = int(iw * scale)
     nh = int(ih * scale)
 
@@ -145,7 +152,7 @@ def randomize_bbox(box, max_boxes, flip_horizontal, flip_vertical, iw, ih, h, w,
 def normalize_image_bbox(image, box, input_shape, max_boxes, proc_img):
     iw, ih = image.size
     h, w = input_shape
-    scale = min(w / iw, h / ih)
+    scale = min(float(w) / iw, float(h) / ih)
     nw = int(iw * scale)
     nh = int(ih * scale)
     dx = (w - nw) // 2
@@ -256,10 +263,8 @@ def get_nb_classes(path_train_annot=None, path_classes=None):
 
 def get_anchors(path_anchors):
     """loads the anchors from a file"""
-    with open(path_anchors) as f:
-        anchors = f.readline()
-    anchors = [float(x) for x in anchors.split(',')]
-    anchors = np.array(anchors).reshape(-1, 2)
+    df = pd.read_csv(path_anchors, header=None, index_col=None)
+    anchors = df.values.astype(float)
     return anchors
 
 

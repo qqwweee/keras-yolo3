@@ -1,11 +1,11 @@
 """
 Reads Darknet config and weights and creates Keras model with TF backend.
 
->> wget -O ../model_data/tiny-yolo.weights  https://pjreddie.com/media/files/tiny-yolo.weights  --progress=bar:force:noscroll
->> python convert_weights.py \
-    --config_path ../model_data/tiny-yolo.cfg \
-    --weights_path ../model_data/tiny-yolo.weights \
-    --output_path ../model_data/tiny-yolo.h5
+    wget -O ../model_data/tiny-yolo.weights  https://pjreddie.com/media/files/tiny-yolo.weights  --progress=bar:force:noscroll
+    python convert_weights.py \
+        --config_path ../model_data/tiny-yolo.cfg \
+        --weights_path ../model_data/tiny-yolo.weights \
+        --output_path ../model_data/tiny-yolo.h5
 
 """
 
@@ -33,14 +33,22 @@ from yolo3.utils import update_path
 
 def parse_arguments():
     parser = argparse.ArgumentParser(description='Darknet To Keras Converter.')
-    parser.add_argument('--config_path', type=str, help='Path to Darknet cfg file.')
-    parser.add_argument('--weights_path', type=str, help='Path to Darknet weights file.')
-    parser.add_argument('--output_path', type=str, help='Path to output Keras model file.')
+    parser.add_argument('--config_path', type=str, required=True,
+                        help='Path to Darknet cfg file.')
+    parser.add_argument('--weights_path', type=str, required=True,
+                        help='Path to Darknet weights file.')
+    parser.add_argument('--output_path', type=str, required=True,
+                        help='Path to output Keras model file.')
     parser.add_argument('-p', '--plot_model', action='store_true',
                         help='Plot generated Keras model and save as image.')
     parser.add_argument('-w', '--weights_only', action='store_true',
                         help='Save as Keras weights file instead of model file.')
-    return parser.parse_args()
+    arg_params = vars(parser.parse_args())
+    for k in (k for k in arg_params if 'path' in k and 'output' not in k):
+        arg_params[k] = update_path(arg_params[k])
+        assert os.path.exists(arg_params[k]), 'missing (%s): %s' % (k, arg_params[k])
+    logging.debug('PARAMETERS: \n %s', repr(arg_params))
+    return arg_params
 
 
 def unique_config_sections(config_file):
@@ -53,8 +61,8 @@ def unique_config_sections(config_file):
     """
     section_counters = defaultdict(int)
     output_stream = io.StringIO()
-    with open(config_file) as fin:
-        for line in fin:
+    with open(config_file) as fp:
+        for line in fp.readlines():
             if line.startswith('['):
                 section = line.strip().strip('[]')
                 _section = section + '_' + str(section_counters[section])
@@ -138,8 +146,7 @@ def parse_convolutional(all_layers, cfg_parser, section, prev_layer, weights_fil
         padding=padding))(prev_layer)
 
     if batch_normalize:
-        conv_layer = (BatchNormalization(
-            weights=bn_weight_list))(conv_layer)
+        conv_layer = (BatchNormalization(weights=bn_weight_list))(conv_layer)
     prev_layer = conv_layer
 
     if activation == 'linear':
@@ -152,25 +159,76 @@ def parse_convolutional(all_layers, cfg_parser, section, prev_layer, weights_fil
     return all_layers, prev_layer, count
 
 
-# %%
-def _main(args):
-    config_path = update_path(args.config_path)
-    assert os.path.isfile(config_path), 'missing "%s"' % config_path
-    weights_path = update_path(args.weights_path)
-    assert os.path.isfile(weights_path), 'missing "%s"' % weights_path
+def parse_section(all_layers, cfg_parser, section, prev_layer, weights_file,
+                  count, weight_decay, out_index):
+    if section.startswith('convolutional'):
+        all_layers, prev_layer, count = parse_convolutional(
+            all_layers, cfg_parser, section, prev_layer, weights_file, count,
+            weight_decay)
 
+    elif section.startswith('route'):
+        ids = [int(i) for i in cfg_parser[section]['layers'].split(',')]
+        layers = [all_layers[i] for i in ids]
+        if len(layers) > 1:
+            logging.info('Concatenating route layers: %s', repr(layers))
+            concatenate_layer = Concatenate()(layers)
+            all_layers.append(concatenate_layer)
+            prev_layer = concatenate_layer
+        else:
+            skip_layer = layers[0]  # only one layer to route
+            all_layers.append(skip_layer)
+            prev_layer = skip_layer
+
+    elif section.startswith('maxpool'):
+        size = int(cfg_parser[section]['size'])
+        stride = int(cfg_parser[section]['stride'])
+        all_layers.append(
+            MaxPooling2D(pool_size=(size, size), strides=(stride, stride),
+                         padding='same')(prev_layer))
+        prev_layer = all_layers[-1]
+
+    elif section.startswith('shortcut'):
+        index = int(cfg_parser[section]['from'])
+        activation = cfg_parser[section]['activation']
+        assert activation == 'linear', 'Only linear activation supported.'
+        all_layers.append(Add()([all_layers[index], prev_layer]))
+        prev_layer = all_layers[-1]
+
+    elif section.startswith('upsample'):
+        stride = int(cfg_parser[section]['stride'])
+        assert stride == 2, 'Only stride=2 supported.'
+        all_layers.append(UpSampling2D(stride)(prev_layer))
+        prev_layer = all_layers[-1]
+
+    elif section.startswith('yolo'):
+        out_index.append(len(all_layers) - 1)
+        all_layers.append(None)
+        prev_layer = all_layers[-1]
+
+    elif section.startswith('net'):
+        logging.debug('neutral sections...')
+
+    else:
+        raise ValueError('Unsupported section header type: %s' % section)
+
+    return (all_layers, cfg_parser, section, prev_layer,
+            weights_file, count, weight_decay, out_index)
+
+
+# %%
+def _main(config_path, weights_path, output_path, weights_only, plot_model):
+    assert os.path.isfile(config_path), 'missing "%s"' % config_path
+    assert os.path.isfile(weights_path), 'missing "%s"' % weights_path
     assert config_path.endswith('.cfg'), \
         '"%s" is not a .cfg file' % os.path.basename(config_path)
     assert weights_path.endswith('.weights'), \
         '"%s" is not a .weights file' % os.path.basename(config_path)
 
-    output_dir = os.path.dirname(args.output_path)
-    output_dir = update_path(output_dir) if output_dir else ''
-    assert (not output_dir or os.path.isdir(output_dir)), 'missing "%s"' % output_dir
-    output_path = os.path.join(output_dir, os.path.basename(args.output_path))
+    output_dir = update_path(os.path.dirname(output_path))
+    assert os.path.isdir(output_dir), 'missing "%s"' % output_dir
+    output_path = os.path.join(output_dir, os.path.basename(output_path))
     assert output_path.endswith('.h5'), \
-        'output path {} is not a .h5 file'.format(output_path)
-    output_root = os.path.splitext(output_path)[0]
+        'output path "%s" is not a .h5 file' % os.path.basename(output_path)
 
     # Load weights and config.
     logging.info('Loading weights: %s', weights_path)
@@ -202,61 +260,17 @@ def _main(args):
     out_index = []
     for section in cfg_parser.sections():
         logging.info('Parsing section "%s"', section)
-        if section.startswith('convolutional'):
-            all_layers, prev_layer, count = parse_convolutional(
-                all_layers, cfg_parser, section, prev_layer, weights_file, count, weight_decay)
-
-        elif section.startswith('route'):
-            ids = [int(i) for i in cfg_parser[section]['layers'].split(',')]
-            layers = [all_layers[i] for i in ids]
-            if len(layers) > 1:
-                logging.info('Concatenating route layers: %s', repr(layers))
-                concatenate_layer = Concatenate()(layers)
-                all_layers.append(concatenate_layer)
-                prev_layer = concatenate_layer
-            else:
-                skip_layer = layers[0]  # only one layer to route
-                all_layers.append(skip_layer)
-                prev_layer = skip_layer
-
-        elif section.startswith('maxpool'):
-            size = int(cfg_parser[section]['size'])
-            stride = int(cfg_parser[section]['stride'])
-            all_layers.append(
-                MaxPooling2D(pool_size=(size, size), strides=(stride, stride),
-                             padding='same')(prev_layer))
-            prev_layer = all_layers[-1]
-
-        elif section.startswith('shortcut'):
-            index = int(cfg_parser[section]['from'])
-            activation = cfg_parser[section]['activation']
-            assert activation == 'linear', 'Only linear activation supported.'
-            all_layers.append(Add()([all_layers[index], prev_layer]))
-            prev_layer = all_layers[-1]
-
-        elif section.startswith('upsample'):
-            stride = int(cfg_parser[section]['stride'])
-            assert stride == 2, 'Only stride=2 supported.'
-            all_layers.append(UpSampling2D(stride)(prev_layer))
-            prev_layer = all_layers[-1]
-
-        elif section.startswith('yolo'):
-            out_index.append(len(all_layers) - 1)
-            all_layers.append(None)
-            prev_layer = all_layers[-1]
-
-        elif section.startswith('net'):
-            pass
-
-        else:
-            raise ValueError('Unsupported section header type: %s' % section)
+        (all_layers, cfg_parser, section, prev_layer,
+         weights_file, count, weight_decay, out_index) = parse_section(
+            all_layers, cfg_parser, section, prev_layer,
+            weights_file, count, weight_decay, out_index)
 
     # Create and save model.
     if len(out_index) == 0:
         out_index.append(len(all_layers) - 1)
     model = Model(inputs=input_layer, outputs=[all_layers[i] for i in out_index])
     logging.info(model.summary())
-    if args.weights_only:
+    if weights_only:
         model.save_weights('{}'.format(output_path))
         logging.info('Saved Keras weights to "%s"', output_path)
     else:
@@ -266,18 +280,18 @@ def _main(args):
     # Check to see if all weights have been read.
     remaining_weights = len(weights_file.read()) / 4
     weights_file.close()
-    logging.info('Read %i of %i from Darknet weight.',
-                 count, count + remaining_weights)
+    logging.info('Read %i of %i from Darknet weight.', count, count + remaining_weights)
     if remaining_weights > 0:
         logging.warning('there are %i unused weights', remaining_weights)
 
-    if args.plot_model:
-        plot(model, to_file='{}.png'.format(output_root), show_shapes=True)
-        logging.info('Saved model plot to %s.png', output_root)
+    if plot_model:
+        path_img = '%s.png' % os.path.splitext(output_path)[0]
+        plot(model, to_file=path_img, show_shapes=True)
+        logging.info('Saved model plot to %s', path_img)
 
 
 if __name__ == '__main__':
     logging.basicConfig(level=logging.DEBUG)
-    params = parse_arguments()
-    _main(params)
+    arg_params = parse_arguments()
+    _main(**arg_params)
     logging.info('DONE.')

@@ -4,7 +4,7 @@ Retrain the YOLO model for your own dataset.
 >> python train_bottleneck.py \
        --path_annot ./model_data/VOC_2007_train.txt \
        --path_weights ./model_data/tiny-yolo.h5 \
-       --path_anchors ./model_data/tiny-yolo_anchors.txt \
+       --path_anchors ./model_data/tiny-yolo_anchors.csv \
        --path_classes ./model_data/coco_classes.txt \
        --path_output ./model_data
 """

@@ -6,34 +6,38 @@ jobs:
       - image: circleci/python:2.7
     steps: &steps
       - checkout
+
       - run:
           name: Install Packages
           command: |
             sudo apt-get update
             sudo apt-get install pkg-config python-dev python-tk
+
       - run:
           name: Install PyPI dependences
           command: |
             pip install -r requirements.txt --user
             sudo pip install coverage pytest pytest-cov codecov
             python --version ; pip --version ; pwd ; ls
+
       - run:
           name: Testing
           command: |
             coverage run --source yolo3 -m py.test yolo3 scripts -v --doctest-modules --junitxml=test-reports/pytest_junit.xml
             coverage report && coverage xml -o test-reports/coverage.xml
             codecov
+
       - run:
           name: Sample run
           command: |
+            export DISPLAY=""
             wget -O model_data/tiny-yolo.weights  https://pjreddie.com/media/files/yolov3-tiny.weights  --progress=bar:force:noscroll
             python scripts/convert_weights.py --config_path model_data/tiny-yolo.cfg --weights_path model_data/tiny-yolo.weights --output_path model_data/tiny-yolo.h5
             mkdir results
             wget -O ./results/dog.jpg https://raw.githubusercontent.com/pjreddie/darknet/master/data/dog.jpg
             wget -O ./results/volleyball.mp4  https://d2v9y0dukr6mq2.cloudfront.net/video/preview/UnK3Qzg/crowds-of-poeple-hot-summer-day-at-wasaga-beach-ontario-canada-during-heatwave_n2t3d8trl__SB_PM.mp4
-            python scripts/predict.py --path_output ./results --path_image ./results/dog.jpg --path_video ./results/volleyball.mp4
+            python scripts/predict.py -w model_data/tiny-yolo.h5 -a model_data/tiny-yolo_anchors.csv -c model_data/coco_classes.txt -o ./results -i ./results/dog.jpg -v ./results/volleyball.mp4
             ls -l results/*
-
 
       - store_test_results:
           path: test-reports

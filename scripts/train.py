@@ -1,22 +1,24 @@
 """
 Retrain the YOLO model for your own dataset.
 
->> python train.py \
-       --path_annot ./model_data/VOC_2007_train.txt \
-       --path_weights ./model_data/tiny-yolo.h5 \
-       --path_anchors ./model_data/tiny-yolo_anchors.txt \
-       --path_classes ./model_data/coco_classes.txt \
-       --path_output ./model_data
+    python train.py \
+        --path_annot ./model_data/VOC_2007_train.txt \
+        --path_weights ./model_data/tiny-yolo.h5 \
+        --path_anchors ./model_data/tiny-yolo_anchors.csv \
+        --path_classes ./model_data/coco_classes.txt \
+        --path_output ./model_data \
+        --path_config ./model_data/train_tiny-yolo.yaml
+
 """
 
 import os
 import sys
 import time
 import copy
-import json
 import logging
 from functools import partial
 
+import yaml
 import numpy as np
 from keras.optimizers import Adam
 from keras.callbacks import TensorBoard, ModelCheckpoint, ReduceLROnPlateau, EarlyStopping
@@ -49,20 +51,25 @@ def parse_params():
     # class YOLO defines the default value, so suppress any default HERE
     parser = arg_params_yolo()
     parser.add_argument('--path_annot', type=str, required=True,
-                        help='path to the train source')
+                        help='path to the train source,'
+                             ' with single taining instance per line')
     parser.add_argument('--path_config', type=str, required=False,
-                        help='path to the train configuration')
+                        help='path to the train configuration, using YAML format')
     arg_params = vars(parser.parse_args())
+    for k in (k for k in arg_params if 'path' in k):
+        arg_params[k] = update_path(arg_params[k])
+        assert os.path.exists(arg_params[k]), 'missing (%s): %s' % (k, arg_params[k])
     logging.debug('PARAMETERS: \n %s', repr(arg_params))
     return arg_params
 
 
 def load_config(path_config, default_config):
-    if path_config is None or not os.path.isfile(path_config):
-        return copy.deepcopy(default_config)
     config = copy.deepcopy(default_config)
+    if path_config is None or not os.path.isfile(path_config):
+        logging.info('Using default configuration')
+        return config
     with open(path_config, 'r') as fp:
-        conf_user = json.load(fp)
+        conf_user = yaml.safe_load(fp)
     config.update(conf_user)
     return config
 
@@ -74,7 +81,7 @@ def load_training_lines(path_annot, valid_split):
     np.random.seed(10101)
     np.random.shuffle(lines)
     np.random.seed(None)
-    num_val = int(len(lines) * valid_split)
+    num_val = max(1, int(len(lines) * valid_split))
     num_train = len(lines) - num_val
 
     lines_train = lines[:num_train]
@@ -84,8 +91,7 @@ def load_training_lines(path_annot, valid_split):
 
 def _main(path_annot, path_anchors, path_weights=None, path_output='.',
           path_config=None, gpu_num=1, **kwargs):
-    path_weights, path_anchors, _, path_output = path_assers(
-        path_weights, path_anchors, None, path_output)
+    path_assers(path_weights, path_anchors, None, path_output)
     path_annot = update_path(path_annot)
     assert os.path.isfile(path_annot), 'missing "%s"' % path_annot
 
@@ -170,6 +176,6 @@ def _main(path_annot, path_anchors, path_weights=None, path_output='.',
 
 if __name__ == '__main__':
     logging.basicConfig(level=logging.DEBUG)
-    a_params = parse_params()
-    _main(**a_params)
+    arg_params = parse_params()
+    _main(**arg_params)
     logging.info('Done')

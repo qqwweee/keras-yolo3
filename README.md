@@ -1,6 +1,6 @@
 # keras-yolo3
 
-[![Build Status](https://travis-ci.com/Borda/keras-yolo3.svg?branch=master)](https://travis-ci.com/Borda/keras-yolo3)
+[![Build Status](https://travis-ci.org/Borda/keras-yolo3.svg?branch=master)](https://travis-ci.org/Borda/keras-yolo3)
 [![Build status](https://ci.appveyor.com/api/projects/status/24m00vife2wae7k0?svg=true)](https://ci.appveyor.com/project/Borda/keras-yolo3)
 [![CircleCI](https://circleci.com/gh/Borda/keras-yolo3.svg?style=svg)](https://circleci.com/gh/Borda/keras-yolo3)
 [![codecov](https://codecov.io/gh/Borda/keras-yolo3/branch/master/graph/badge.svg)](https://codecov.io/gh/Borda/keras-yolo3)
@@ -16,12 +16,15 @@ A [Keras](https://keras.io/) implementation of YOLOv3 ([Tensorflow backend](http
 
 ## Quick Start
 
+For more model and configuration please see  [YOLO website](http://pjreddie.com/darknet/yolo/) and [darknet](https://github.com/pjreddie/darknet/tree/master/cfg) repository.
+
 1. Download YOLOv3 weights from [YOLO website](http://pjreddie.com/darknet/yolo/).
     ```bash
-    wget -O model_data/yolo.weights  \
+    wget -O ./model_data/yolo3.weights  \
        https://pjreddie.com/media/files/yolov3.weights  \
        --progress=bar:force:noscroll
     ```
+    alternatively you can download light version `yolov3-tiny.weights` 
 2. Convert the Darknet YOLO model to a Keras model.
     ```bash
     python3 scripts/convert_weights.py \
@@ -33,10 +36,10 @@ A [Keras](https://keras.io/) implementation of YOLOv3 ([Tensorflow backend](http
     ```bash
     python3 scripts/predict.py \
        --path_weights ./model_data/yolo.h5 \
-       --path_anchors ./model_data/yolo_anchors.txt \
+       --path_anchors ./model_data/yolo_anchors.csv \
        --path_classes ./model_data/coco_classes.txt \
        --path_output ./results \
-       --path_image dog.jpg \
+       --path_image ./model_data/bike-car-dog.jpg \
        --path_video person.mp4
     ```
     For Full YOLOv3, just do in a similar way, just specify model path and anchor path with `--path_weights <model_file>` and `--path_anchors <anchor_file>`.
@@ -53,17 +56,20 @@ For training you can use [VOC dataset](http://host.robots.ox.ac.uk/pascal/VOC/),
     * Row format: `image_file_path box1 box2 ... boxN`;  
     * Box format: `x_min,y_min,x_max,y_max,class_id` (no space).  
     * For VOC dataset.  
-    Run `python scripts/annotation_voc.py --path_dataset <path-to-the-downloaded-dataset>`  
+    Run one of following scrips for dataset conversion 
+    * `scripts/annotation_voc.py` 
+    * `scripts/annotation_coco.py` 
+    * `scripts/annotation_csv.py`  
     Here is an example:
-    ```
+    ```text
     path/to/img1.jpg 50,100,150,200,0 30,50,200,120,3
     path/to/img2.jpg 120,300,250,600,2
     ...
     ```
-2. Make sure you have run `python scripts/convert_weights.py <...>`  
+2. Make sure you have run `python scripts/convert_weights.py <...>`.
     The file `model_data/yolo_weights.h5` is used to load pre-trained weights.
-3. Modify train.py and start training.  `python train.py`
-    Use your trained weights or checkpoint weights with command line option `--model model_file` when using `yolo_interactive.py`
+3. Modify train.py and start training.  `python train.py`.
+    Use your trained weights or checkpoint weights with command line option `--model model_file` when using `yolo_interactive.py`.
     Remember to modify class path or anchor path, with `--classes class_file` and `--anchors anchor_file`.
 
 If you want to use original pre-trained weights for YOLOv3:  

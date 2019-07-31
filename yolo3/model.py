@@ -13,8 +13,14 @@ from keras.layers import Input, Lambda
 from keras.layers.advanced_activations import LeakyReLU
 from keras.layers.normalization import BatchNormalization
 from keras.models import Model
-from keras.utils import multi_gpu_model
 from keras.regularizers import l2
+try:
+    from keras.utils import multi_gpu_model
+except ImportError:
+    logging.warning('Keras function `multi_gpu_model` was not found.')
+
+    def multi_gpu_model(model, **kwargs):
+        return model
 
 from yolo3.utils import compose, update_path
 
@@ -35,7 +41,8 @@ def DarknetConv2D_BN_Leaky(*args, **kwargs):
     return compose(
         DarknetConv2D(*args, **no_bias_kwargs),
         BatchNormalization(),
-        LeakyReLU(alpha=0.1))
+        LeakyReLU(alpha=0.1),
+    )
 
 
 def resblock_body(x, num_filters, num_blocks):
@@ -387,10 +394,10 @@ def create_model(input_shape, anchors, num_classes, weights_path=None, factor=3,
     model_body = FACTOR_YOLO_BODY[factor](image_input, num_anchors // factor, num_classes)
     logging.info('Create YOLOv3 (factor: %i) model with %i anchors and %i classes.',
                  factor, num_anchors, num_classes)
-    weights_path = update_path(weights_path)
+    # weights_path = update_path(weights_path)
 
     if weights_path is not None:
-        model_body.load_weights(weights_path, by_name=True, skip_mismatch=True)
+        model_body.load_weights(weights_path, by_name=True)
         logging.info('Load weights "%s".', weights_path)
         if freeze_body in [1, 2]:
             # Freeze darknet53 body or freeze all but 3 output layers.

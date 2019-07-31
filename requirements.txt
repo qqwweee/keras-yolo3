@@ -2,8 +2,12 @@ numpy
 matplotlib
 Pillow
 keras>=2.0.0
+pydot
+pydot-ng
+graphviz
 tensorflow>=1.4.0
 pandas
 opencv-python
 tqdm
 pathos
+PyYAML

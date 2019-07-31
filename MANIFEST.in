@@ -10,7 +10,7 @@ include *.md
 include LICENSE
 
 # Include the data files
-recursive-include model_data *.txt *.cfg *.json
+recursive-include model_data *.txt *.cfg *.yaml *.csv *.jpg
 
 # Include scripts
 recursive-include scripts *.py
@@ -23,5 +23,6 @@ exclude *.yml
 
 prune .git
 prune venv
-prune font
+prune temp
+prune results
 prune test*

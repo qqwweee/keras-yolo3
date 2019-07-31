@@ -11,7 +11,13 @@ import numpy as np
 from keras import backend as K
 from keras.models import load_model
 from keras.layers import Input
-from keras.utils import multi_gpu_model
+try:
+    from keras.utils import multi_gpu_model
+except ImportError:
+    logging.warning('Keras function `multi_gpu_model` was not found.')
+
+    def multi_gpu_model(model, **kwargs):
+        return model
 
 from yolo3.model import yolo_eval, yolo_body, tiny_yolo_body
 from yolo3.utils import letterbox_image, update_path, get_anchors, get_class_names
@@ -24,7 +30,7 @@ class YOLO(object):
 
     _DEFAULT_PARAMS = {
         "weights_path": 'model_data/tiny-yolo.h5',
-        "anchors_path": 'model_data/tiny-yolo_anchors.txt',
+        "anchors_path": 'model_data/tiny-yolo_anchors.csv',
         "classes_path": 'model_data/coco_classes.txt',
         "score": 0.3,
         "iou": 0.45,
@@ -33,18 +39,24 @@ class YOLO(object):
     }
 
     @classmethod
-    def get_defaults(cls, n):
-        if n in cls._DEFAULT_PARAMS:
-            return cls._DEFAULT_PARAMS[n]
-        else:
-            return "Unrecognized attribute name '" + n + "'"
+    def get_defaults(cls, name):
+        if name not in cls._DEFAULT_PARAMS:
+            logging.warning('Unrecognized attribute name "%s"', name)
+        return cls._DEFAULT_PARAMS.get(name)
 
-    def __init__(self, weights_path='model_data/tiny-yolo.h5',
-                 anchors_path='model_data/tiny-yolo_anchors.txt',
-                 classes_path='model_data/coco_classes.txt',
-                 score=0.3, iou=0.45,
-                 model_image_size=(416, 416),
-                 gpu_num=1, **kwargs):
+    def __init__(self, weights_path, anchors_path, classes_path, model_image_size,
+                 score=0.3, iou=0.45, gpu_num=1, **kwargs):
+        """
+
+        :param str weights_path: path to loaded model weights, e.g. 'model_data/tiny-yolo.h5'
+        :param str anchors_path: path to loaded model anchors, e.g. 'model_data/tiny-yolo_anchors.csv'
+        :param str classes_path: path to loaded trained classes, e.g. 'model_data/coco_classes.txt'
+        :param float score: confidence score
+        :param float iou:
+        :param tuple(int,int) model_image_size: e.g. for tiny (416, 416)
+        :param int gpu_num:
+        :param kwargs:
+        """
         self.__dict__.update(kwargs)  # and update with user overrides
         self.weights_path = update_path(weights_path)
         self.anchors_path = update_path(anchors_path)
@@ -55,8 +67,18 @@ class YOLO(object):
         self.gpu_num = gpu_num
         self.class_names = get_class_names(self.classes_path)
         self.anchors = get_anchors(self.anchors_path)
-        self.sess = K.get_session()
+        self._open_session()
         self.boxes, self.scores, self.classes = self.generate()
+
+    def _open_session(self):
+        self.sess = K.get_session()
+
+        # config = tf.ConfigProto(allow_soft_placement=True,
+        #                         log_device_placement=False)
+        # config.gpu_options.force_gpu_compatible = True
+        # # Don't pre-allocate memory; allocate as-needed
+        # config.gpu_options.allow_growth = True
+        # self.sess = tf.Session(config=config)
 
     def generate(self):
         # weights_path = update_path(self.weights_path)
@@ -71,6 +93,7 @@ class YOLO(object):
         try:
             self.yolo_model = load_model(self.weights_path, compile=False)
         except Exception:
+            logging.exception('Loading weights from "%s"', self.weights_path)
             if is_tiny_version:
                 self.yolo_model = tiny_yolo_body(Input(shape=(None, None, 3)),
                                                  num_anchors // 2, num_classes)
@@ -95,7 +118,8 @@ class YOLO(object):
         _fn_colorr = lambda x: (int(x[0] * 255), int(x[1] * 255), int(x[2] * 255))
         self.colors = list(map(_fn_colorr, self.colors))
         np.random.seed(10101)  # Fixed seed for consistent colors across runs.
-        np.random.shuffle(self.colors)  # Shuffle colors to decorrelate adjacent classes.
+        # Shuffle colors to decorrelate adjacent classes.
+        np.random.shuffle(self.colors)
         np.random.seed(None)  # Reset seed to default.
 
         # Generate output tensor targets for filtered bounding boxes.
@@ -155,5 +179,8 @@ class YOLO(object):
         logging.debug('elapsed time: %f sec.', (end - start))
         return image, predicts
 
-    def close_session(self):
+    def _close_session(self):
         self.sess.close()
+
+    def __del__(self):
+        self._close_session()

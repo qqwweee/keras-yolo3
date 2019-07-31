@@ -7,7 +7,7 @@ https://github.com/pypa/sampleproject
 
 # Always prefer setuptools over distutils
 from os import path
-from setuptools import setup, find_packages
+from setuptools import setup
 # io.open is needed for projects that support Python 2.7
 # It ensures open() defaults to text mode with universal newlines,
 # and accepts an argument to specify the text encoding
@@ -26,20 +26,22 @@ def _parse_requirements(file_path):
 HERE = path.abspath(path.dirname(__file__))
 
 # Get the long description from the README file
-with open(path.join(HERE, 'README.md'), encoding='utf-8') as f:
-    long_description = f.read()
+with open(path.join(HERE, 'README.md'), encoding='utf-8') as fp:
+    long_description = fp.read()
 
 install_reqs = _parse_requirements(path.join(HERE, 'requirements.txt'))
 
 setup(
     name='yolo3',  # Required
     version='0.1',  # Required
+    packages=['yolo3'],  # Required
     description='YOLO v3 in Keras',  # Required
     author='qqwweee',  # Optional
     author_email='qqwweee',  # Optional
     long_description=long_description,  # Optional (see note above)
     # long_description_content_type='text/markdown',  # Optional (see note above)
     url='https://github.com/Borda/keras-yolo3',  # Optional
+    install_requires=install_reqs,  # Optional
     classifiers=[  # Optional
         # How mature is this project? Common values are
         #   3 - Alpha; 4 - Beta; 5 - Production/Stable
@@ -56,7 +58,5 @@ setup(
         'Programming Language :: Python :: 3.5',
         'Programming Language :: Python :: 3.6',
     ],
-    keywords='Yolo CNN detector',  # Optional
-    packages=find_packages(exclude=['contrib', 'docs', 'tests']),  # Required
-    install_requires=install_reqs,  # Optional
+    keywords='Yolo CNN object-detector',  # Optional
 )

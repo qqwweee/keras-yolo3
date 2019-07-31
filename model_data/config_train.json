@@ -1,7 +1,0 @@
-{
-    "image-size": [416, 416],
-    "batch-size": 32,
-    "epochs-body": 50,
-    "epochs-fine": 50,
-    "valid-split": 0.1
-}

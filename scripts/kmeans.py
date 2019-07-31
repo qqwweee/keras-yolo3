@@ -3,7 +3,9 @@
 """
 
 import logging
+
 import numpy as np
+import pandas as pd
 
 
 class YOLO_Kmeans:
@@ -63,15 +65,8 @@ class YOLO_Kmeans:
         return clusters
 
     @staticmethod
-    def result2txt(data, file_name='yolo_anchors.txt'):
-        with open(file_name, 'w') as fp:
-            row = np.shape(data)[0]
-            for i in range(row):
-                if i == 0:
-                    x_y = "%d,%d" % (data[i][0], data[i][1])
-                else:
-                    x_y = ", %d,%d" % (data[i][0], data[i][1])
-                fp.write(x_y)
+    def result2txt(data, file_name='yolo_anchors.csv'):
+        pd.DataFrame(data).to_csv(file_name, header=None, index=None)
 
     def txt2boxes(self):
         with open(self.filename, 'r') as fp:
