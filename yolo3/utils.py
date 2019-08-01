@@ -16,8 +16,9 @@ from matplotlib.colors import rgb_to_hsv, hsv_to_rgb
 CPU_COUNT = mproc.cpu_count()
 
 
-def nb_threads(ratio):
-    return max(1, int(CPU_COUNT * ratio))
+def nb_workers(ratio):
+    nb = ratio if isinstance(ratio, int) else int(CPU_COUNT * ratio)
+    return max(1, nb)
 
 
 def update_path(my_path, max_depth=5, abs_path=True):
@@ -243,18 +244,27 @@ def get_class_names(path_classes):
     return class_names
 
 
+def get_dataset_class_names(path_train_annot, path_classes=None):
+    logging.debug('loading training dataset from "%s"', path_train_annot)
+    with open(path_train_annot) as fp:
+        lines = fp.readlines()
+    classes = []
+    for ln in lines:
+        classes += [bbox.split(',')[-1] for bbox in ln.rstrip().split(' ')[1:]]
+    uq_classes = sorted(set([int(c) for c in classes]))
+    if path_classes and os.path.isfile(path_classes):
+        cls_names = get_class_names(path_classes)
+        uq_classes = {cls: cls_names[cls] for cls in uq_classes}
+    return uq_classes
+
+
 def get_nb_classes(path_train_annot=None, path_classes=None):
     if path_classes is not None and os.path.isfile(path_classes):
         class_names = get_class_names(path_classes)
         nb_classes = len(class_names)
     elif path_train_annot is not None and os.path.isfile(path_train_annot):
-        with open(path_train_annot) as f:
-            lines = f.readlines()
-        classes = []
-        for ln in lines:
-            classes += [bbox.split(',')[-1] for bbox in ln.rstrip().split(' ')[1:]]
-        classes = [int(c) for c in classes]
-        nb_classes = len(set(classes))
+        uq_classes = get_dataset_class_names(path_train_annot)
+        nb_classes = len(uq_classes)
     else:
         logging.warning('No input for extracting classes.')
         nb_classes = 0
@@ -348,24 +358,27 @@ def preprocess_true_boxes(true_boxes, input_shape, anchors, num_classes):
 def data_generator(annotation_lines, batch_size, input_shape, anchors, nb_classes,
                    randomize=True, max_boxes=20, jitter=0.3, proc_img=True,
                    color_hue=0.1, color_sat=1.5, color_val=1.5,
-                   flip_horizontal=True, flip_vertical=False, nb_jobs=1):
+                   flip_horizontal=True, flip_vertical=False, nb_threads=1):
     """ data generator for fit_generator """
     nb_lines = len(annotation_lines)
     circ_i = 0
     if nb_lines == 0 or batch_size <= 0:
         return None
-    pool = ProcessPool(nb_jobs) if nb_jobs > 1 else None
-    _wrap_rand_data = partial(get_random_data,
-                              input_shape=input_shape,
-                              randomize=randomize,
-                              max_boxes=max_boxes,
-                              jitter=jitter,
-                              proc_img=proc_img,
-                              hue=color_hue,
-                              sat=color_sat,
-                              val=color_val,
-                              flip_horizontal=flip_horizontal,
-                              flip_vertical=flip_vertical)
+    nb_threads = nb_workers(nb_threads)
+    pool = ProcessPool(nb_threads) if nb_threads > 1 else None
+    _wrap_rand_data = partial(
+        get_random_data,
+        input_shape=input_shape,
+        randomize=randomize,
+        max_boxes=max_boxes,
+        jitter=jitter,
+        proc_img=proc_img,
+        hue=color_hue,
+        sat=color_sat,
+        val=color_val,
+        flip_horizontal=flip_horizontal,
+        flip_vertical=flip_vertical
+    )
 
     while True:
         if circ_i < batch_size:

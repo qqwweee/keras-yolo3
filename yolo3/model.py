@@ -14,13 +14,7 @@ from keras.layers.advanced_activations import LeakyReLU
 from keras.layers.normalization import BatchNormalization
 from keras.models import Model
 from keras.regularizers import l2
-try:
-    from keras.utils import multi_gpu_model
-except ImportError:
-    logging.warning('Keras function `multi_gpu_model` was not found.')
-
-    def multi_gpu_model(model, **kwargs):
-        return model
+from keras.utils import multi_gpu_model
 
 from yolo3.utils import compose, update_path
 
@@ -103,7 +97,7 @@ def yolo_body(inputs, num_anchors, num_classes):
     return Model(inputs, [y1, y2, y3])
 
 
-def tiny_yolo_body(inputs, num_anchors, num_classes):
+def yolo_body_tiny(inputs, num_anchors, num_classes):
     """Create Tiny YOLO_v3 model CNN body in keras."""
     x1 = compose(
         DarknetConv2D_BN_Leaky(16, (3, 3)),
@@ -124,13 +118,13 @@ def tiny_yolo_body(inputs, num_anchors, num_classes):
     y1 = compose(
         DarknetConv2D_BN_Leaky(512, (3, 3)),
         DarknetConv2D(num_anchors * (num_classes + 5), (1, 1)))(x2)
-    x2 = compose(
+    x3 = compose(
         DarknetConv2D_BN_Leaky(128, (1, 1)),
         UpSampling2D(2))(x2)
     y2 = compose(
         Concatenate(),
         DarknetConv2D_BN_Leaky(256, (3, 3)),
-        DarknetConv2D(num_anchors * (num_classes + 5), (1, 1)))([x2, x1])
+        DarknetConv2D(num_anchors * (num_classes + 5), (1, 1)))([x3, x1])
 
     return Model(inputs, [y1, y2])
 
@@ -153,10 +147,8 @@ def yolo_head(feats, anchors, num_classes, input_shape, calc_loss=False):
                               num_anchors, num_classes + 5])
 
     # Adjust preditions to each spatial grid point and anchor size.
-    box_xy = (K.sigmoid(feats[..., :2]) + grid) / K.cast(grid_shape[::-1],
-                                                         K.dtype(feats))
-    box_wh = K.exp(feats[..., 2:4]) * anchors_tensor / K.cast(input_shape[::-1],
-                                                              K.dtype(feats))
+    box_xy = (K.sigmoid(feats[..., :2]) + grid) / K.cast(grid_shape[::-1], K.dtype(feats))
+    box_wh = K.exp(feats[..., 2:4]) * anchors_tensor / K.cast(input_shape[::-1], K.dtype(feats))
     box_confidence = K.sigmoid(feats[..., 4:5])
     box_class_probs = K.sigmoid(feats[..., 5:])
 
@@ -286,12 +278,12 @@ def box_iou(b1, b2):
     return iou
 
 
-def yolo_loss(args, anchors, num_classes, ignore_thresh=.5, print_loss=False):
+def yolo_loss(args, anchors, num_classes, ignore_thresh=0.5, print_loss=False):
     """Return yolo_loss tensor
 
     Parameters
     ----------
-    yolo_outputs: list of tensor, the output of yolo_body or tiny_yolo_body
+    yolo_outputs: list of tensor, the output of yolo_body or yolo_body_tiny
     y_true: list of array, the output of preprocess_true_boxes
     anchors: array, shape=(N, 2), wh
     num_classes: integer
@@ -306,7 +298,7 @@ def yolo_loss(args, anchors, num_classes, ignore_thresh=.5, print_loss=False):
     yolo_outputs = args[:num_layers]
     y_true = args[num_layers:]
     anchor_mask = [[6, 7, 8], [3, 4, 5], [0, 1, 2]] \
-        if num_layers == 3 else [[3, 4, 5], [1, 2, 3]]
+        if num_layers == 3 else [[3, 4, 5], [0, 1, 2]]
     input_shape = K.cast(K.shape(yolo_outputs[0])[1:3] * 32,
                          K.dtype(y_true[0]))
     grid_shapes = [K.cast(K.shape(yolo_outputs[l])[1:3], K.dtype(y_true[0]))
@@ -328,6 +320,10 @@ def yolo_loss(args, anchors, num_classes, ignore_thresh=.5, print_loss=False):
         # Darknet raw box to calculate loss.
         raw_true_xy = y_true[l][..., :2] * grid_shapes[l][::-1] - grid
         raw_true_wh = K.log(y_true[l][..., 2:4] / anchors[anchor_mask[l]] * input_shape[::-1])
+        # Keras switch allows scalr condition, bit here is expected to have elemnt-wise
+        #  also the `object_mask` has in last dimension 1 but the in/out puts has 2 (some replication)
+        # raw_true_wh = tf.where(tf.greater(K.concatenate([object_mask] * 2), 0),
+        #                        raw_true_wh, K.zeros_like(raw_true_wh))  # avoid log(0)=-inf
         raw_true_wh = K.switch(object_mask, raw_true_wh,
                                K.zeros_like(raw_true_wh))  # avoid log(0)=-inf
         box_loss_scale = 2 - y_true[l][..., 2:3] * y_true[l][..., 3:4]
@@ -336,7 +332,7 @@ def yolo_loss(args, anchors, num_classes, ignore_thresh=.5, print_loss=False):
         ignore_mask = tf.TensorArray(K.dtype(y_true[0]), size=1, dynamic_size=True)
         object_mask_bool = K.cast(object_mask, 'bool')
 
-        def loop_body(b, ignore_mask):
+        def _loop_body(b, ignore_mask):
             true_box = tf.boolean_mask(y_true[l][b, ..., 0:4],
                                        object_mask_bool[b, ..., 0])
             iou = box_iou(pred_box[b], true_box)
@@ -346,7 +342,7 @@ def yolo_loss(args, anchors, num_classes, ignore_thresh=.5, print_loss=False):
             return b + 1, ignore_mask
 
         _, ignore_mask = K.control_flow_ops.while_loop(
-            lambda b, *args: b < m, loop_body, [0, ignore_mask])
+            lambda b, *args: b < m, _loop_body, [0, ignore_mask])
         ignore_mask = ignore_mask.stack()
         ignore_mask = K.expand_dims(ignore_mask, -1)
 
@@ -374,46 +370,51 @@ def yolo_loss(args, anchors, num_classes, ignore_thresh=.5, print_loss=False):
     return loss
 
 
-def create_model(input_shape, anchors, num_classes, weights_path=None, factor=3,
+def create_model(input_shape, anchors, num_classes, weights_path=None, model_factor=3,
                  freeze_body=2, ignore_thresh=0.5, gpu_num=1):
     """create the training model"""
-    INPUT_SHAPES = {0: 32, 1: 16, 2: 8, 3: 4}
-    FACTOR_YOLO_BODY = {2: tiny_yolo_body, 3: yolo_body}
-    FACTOR_FREEZEING = {2: 20, 3: 185}
+    _INPUT_SHAPES = {0: 32, 1: 16, 2: 8, 3: 4}
+    _FACTOR_YOLO_BODY = {2: yolo_body_tiny, 3: yolo_body}
+    _FACTOR_FREEZEING = {2: 20, 3: 185}
+    _LOSS_ARGUMENTS = {
+        'anchors': anchors,
+        'num_classes': num_classes,
+        'ignore_thresh': ignore_thresh
+    }
 
     K.clear_session()  # get a new session
     image_input = Input(shape=(None, None, 3))
     h, w = input_shape
     num_anchors = len(anchors)
 
-    y_true = [Input(shape=(h // {i: INPUT_SHAPES[i] for i in range(factor)}[l],
-                           w // {i: INPUT_SHAPES[i] for i in range(factor)}[l],
-                           num_anchors // factor,
-                           num_classes + 5))
-              for l in range(factor)]
-    model_body = FACTOR_YOLO_BODY[factor](image_input, num_anchors // factor, num_classes)
-    logging.info('Create YOLOv3 (factor: %i) model with %i anchors and %i classes.',
-                 factor, num_anchors, num_classes)
-    # weights_path = update_path(weights_path)
+    model_body = _FACTOR_YOLO_BODY[model_factor](image_input, num_anchors // model_factor, num_classes)
+    logging.debug('Create YOLOv3 (model_factor: %i) model with %i anchors and %i classes.',
+                  model_factor, num_anchors, num_classes)
 
     if weights_path is not None:
-        model_body.load_weights(weights_path, by_name=True)
-        logging.info('Load weights "%s".', weights_path)
+        # model_body = load_model(weights_path, compile=False)
+        model_body.load_weights(weights_path, by_name=True, skip_mismatch=True)
+        logging.info('Load model "%s".', weights_path)
         if freeze_body in [1, 2]:
             # Freeze darknet53 body or freeze all but 3 output layers.
-            num = (FACTOR_FREEZEING[factor],
-                   len(model_body.layers) - factor)[freeze_body - 1]
-            for i in range(num):
-                model_body.layers[i].trainable = False
+            num = (_FACTOR_FREEZEING[model_factor],
+                   len(model_body.layers) - model_factor)[freeze_body - 1]
             logging.info('Freeze the first %i layers of total %i layers.',
                          num, len(model_body.layers))
+            for i in range(num):
+                model_body.layers[i].trainable = False
 
     model_loss_fn = Lambda(yolo_loss, output_shape=(1,), name='yolo_loss',
-                           arguments={'anchors': anchors,
-                                      'num_classes': num_classes,
-                                      'ignore_thresh': ignore_thresh})
+                           arguments=_LOSS_ARGUMENTS)
+    y_true = [Input(shape=(h // {i: _INPUT_SHAPES[i] for i in range(model_factor)}[l],
+                           w // {i: _INPUT_SHAPES[i] for i in range(model_factor)}[l],
+                           num_anchors // model_factor,
+                           num_classes + 5))
+              for l in range(model_factor)]
     model_loss = model_loss_fn([*model_body.output, *y_true])
     model = Model([model_body.input, *y_true], model_loss)
+
+    logging.debug(model.summary(line_length=120))
 
     if gpu_num >= 2:
         model = multi_gpu_model(model, gpus=gpu_num)
@@ -425,7 +426,7 @@ def create_model_tiny(input_shape, anchors, num_classes, weights_path=None,
                       freeze_body=2, ignore_thresh=0.5, gpu_num=1):
     """create the training model, for Tiny YOLOv3 """
 
-    return create_model(input_shape, anchors, num_classes, weights_path, factor=2,
+    return create_model(input_shape, anchors, num_classes, weights_path, model_factor=2,
                         freeze_body=freeze_body, ignore_thresh=ignore_thresh, gpu_num=gpu_num)
 
 
@@ -443,7 +444,7 @@ def create_model_bottleneck(input_shape, anchors, num_classes, freeze_body=2,
                            num_classes + 5))
               for l in range(3)]
 
-    LOSS_ARGUMENTS = {
+    _LOSS_ARGUMENTS = {
         'anchors': anchors,
         'num_classes': num_classes,
         'ignore_thresh': 0.5
@@ -482,13 +483,11 @@ def create_model_bottleneck(input_shape, anchors, num_classes, freeze_body=2,
     last_out1 = model_body.layers[250](in1)
     last_out2 = model_body.layers[251](in2)
     model_last = Model(inputs=[in0, in1, in2], outputs=[last_out0, last_out1, last_out2])
-    fn_loss = Lambda(yolo_loss, output_shape=(1,), name='yolo_loss',
-                     arguments=LOSS_ARGUMENTS)
+    fn_loss = Lambda(yolo_loss, output_shape=(1,), name='yolo_loss', arguments=_LOSS_ARGUMENTS)
     model_loss_last = fn_loss([*model_last.output, *y_true])
     last_layer_model = Model([in0, in1, in2, *y_true], model_loss_last)
 
-    fn_loss = Lambda(yolo_loss, output_shape=(1,), name='yolo_loss',
-                     arguments=LOSS_ARGUMENTS)
+    fn_loss = Lambda(yolo_loss, output_shape=(1,), name='yolo_loss', arguments=_LOSS_ARGUMENTS)
     model_loss = fn_loss([*model_body.output, *y_true])
     model = Model([model_body.input, *y_true], model_loss)
 

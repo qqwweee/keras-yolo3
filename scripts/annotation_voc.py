@@ -17,12 +17,16 @@ Creating training file from VOC dataset
 """
 
 import os
+import sys
 import glob
 import argparse
 import logging
 import xml.etree.ElementTree as ET
 
 import tqdm
+
+sys.path += [os.path.abspath('.'), os.path.abspath('..')]
+from yolo3.utils import update_path
 
 
 def parse_arguments():
@@ -37,6 +41,9 @@ def parse_arguments():
     parser.add_argument('--classes', type=str, required=False, default=None, nargs='*',
                         help='Use only following classes.')
     arg_params = vars(parser.parse_args())
+    for k in (k for k in arg_params if 'path' in k):
+        arg_params[k] = update_path(arg_params[k])
+        assert os.path.exists(arg_params[k]), 'missing (%s): %s' % (k, arg_params[k])
     logging.debug('PARAMETERS: %s', repr(arg_params))
     return arg_params
 
@@ -77,18 +84,18 @@ def convert_annotation(path_dataset_year, image_id, classes):
     return records
 
 
-def _main(path_dataset, path_output, sets, classes=None):
-    path_dataset = os.path.abspath(os.path.expanduser(path_dataset))
-    assert os.path.isdir(path_dataset), 'missing: %s' % path_dataset
-    path_output = os.path.abspath(os.path.expanduser(path_output))
-    assert os.path.isdir(path_output), 'missing: %s' % path_output
-
+def _update_classes(path_dataset, sets, classes):
     if classes is None:
         years = set([year_type.split(',')[0] for year_type in sets])
         classes = [load_all_classes(os.path.join(path_dataset,
                                                  'VOC%s' % year))
                    for year in years]
         classes = list(set(*classes))
+    return classes
+
+
+def _main(path_dataset, path_output, sets, classes=None):
+    classes = _update_classes(path_dataset, sets, classes)
 
     path_json = os.path.join(path_output, 'voc_classes.txt')
     logging.info('export TXT classes: %s', path_json)

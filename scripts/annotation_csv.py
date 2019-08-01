@@ -7,12 +7,16 @@ Creating training file from own custom dataset
 """
 
 import os
+import sys
 import glob
 import argparse
 import logging
 
 import pandas as pd
 import tqdm
+
+sys.path += [os.path.abspath('.'), os.path.abspath('..')]
+from yolo3.utils import update_path
 
 IMAGE_EXTENSIONS = ['.png', '.jpg']
 ANNOT_COLUMS = ['xmin', 'ymin', 'xmax', 'ymax', 'class']
@@ -25,6 +29,9 @@ def parse_arguments():
     parser.add_argument('--path_output', type=str, required=False, default='.',
                         help='Path to output folder.')
     arg_params = vars(parser.parse_args())
+    for k in (k for k in arg_params if 'path' in k):
+        arg_params[k] = update_path(arg_params[k])
+        assert os.path.exists(arg_params[k]), 'missing (%s): %s' % (k, arg_params[k])
     logging.debug('PARAMETERS: %s', repr(arg_params))
     return arg_params
 
@@ -43,11 +50,6 @@ def convert_annotation(path_csv, classes=None):
 
 
 def _main(path_dataset, path_output, classes=None):
-    path_dataset = os.path.abspath(os.path.expanduser(path_dataset))
-    assert os.path.isdir(path_dataset), 'missing: %s' % path_dataset
-    path_output = os.path.abspath(os.path.expanduser(path_output))
-    assert os.path.isdir(path_output), 'missing: %s' % path_output
-
     name_dataset = os.path.basename(path_dataset)
     list_csv = sorted(glob.glob(os.path.join(path_dataset, '*.csv')))
 

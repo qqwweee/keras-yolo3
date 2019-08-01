@@ -269,12 +269,12 @@ def _main(config_path, weights_path, output_path, weights_only, plot_model):
     if len(out_index) == 0:
         out_index.append(len(all_layers) - 1)
     model = Model(inputs=input_layer, outputs=[all_layers[i] for i in out_index])
-    logging.info(model.summary())
+    logging.info(model.summary(line_length=120))
     if weights_only:
-        model.save_weights('{}'.format(output_path))
+        model.save_weights(output_path)
         logging.info('Saved Keras weights to "%s"', output_path)
     else:
-        model.save('{}'.format(output_path))
+        model.save(output_path)
         logging.info('Saved Keras model to "%s"', output_path)
 
     # Check to see if all weights have been read.

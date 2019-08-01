@@ -36,7 +36,7 @@ jobs:
             mkdir results
             wget -O ./results/dog.jpg https://raw.githubusercontent.com/pjreddie/darknet/master/data/dog.jpg
             wget -O ./results/volleyball.mp4  https://d2v9y0dukr6mq2.cloudfront.net/video/preview/UnK3Qzg/crowds-of-poeple-hot-summer-day-at-wasaga-beach-ontario-canada-during-heatwave_n2t3d8trl__SB_PM.mp4
-            python scripts/predict.py -w model_data/tiny-yolo.h5 -a model_data/tiny-yolo_anchors.csv -c model_data/coco_classes.txt -o ./results -i ./results/dog.jpg -v ./results/volleyball.mp4
+            python ./scripts/predict.py -w ./model_data/tiny-yolo.h5 -a ./model_data/tiny-yolo_anchors.csv --model_image_size 416 416 -c ./model_data/coco_classes.txt -o ./results -i ./results/dog.jpg -v ./results/volleyball.mp4
             ls -l results/*
 
       - store_test_results:

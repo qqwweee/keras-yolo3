@@ -37,17 +37,13 @@ def arg_params_yolo():
     parser = argparse.ArgumentParser(argument_default=argparse.SUPPRESS)
     # Command line options
     parser.add_argument('-w', '--path_weights', type=str,
-                        help='path to model weight file',
-                        default=YOLO.get_defaults("weights_path"))
+                        help='path to model weight file')
     parser.add_argument('-a', '--path_anchors', type=str,
-                        help='path to anchor definitions',
-                        default=YOLO.get_defaults("anchors_path"))
+                        help='path to anchor definitions')
     parser.add_argument('--model_image_size', type=int, nargs=2,
-                        help='input image size for the model',
-                        default=YOLO.get_defaults("model_image_size"))
+                        help='input image size for the model')
     parser.add_argument('-c', '--path_classes', type=str,
-                        help='path to class definitions',
-                        default=YOLO.get_defaults("classes_path"))
+                        help='path to class definitions')
     parser.add_argument('--gpu_num', type=int, help='Number of GPU to use',
                         default=str(YOLO.get_defaults("gpu_num")))
     parser.add_argument('-o', '--path_output', required=False, type=str, default='.',
@@ -71,7 +67,7 @@ def parse_params():
     for k in (k for k in arg_params if 'path' in k):
         if k in ('path_image', 'path_video'):
             arg_params[k] = [update_path(path_) for path_ in arg_params[k]]
-        else:
+        elif arg_params[k]:
             arg_params[k] = update_path(arg_params[k])
             assert os.path.exists(arg_params[k]), 'missing (%s): %s' % (k, arg_params[k])
     logging.debug('PARAMETERS: \n %s', repr(arg_params))
@@ -150,23 +146,8 @@ def predict_video(yolo, path_video, path_output=None):
         logging.info('exported predictions: %s', path_json)
 
 
-def path_assers(path_weights, path_anchors, path_classes, path_output):
-    if path_weights is not None:
-        # path_weights = update_path(path_weights)
-        assert os.path.isfile(path_weights), 'missing "%s"' % path_weights
-    # path_anchors = update_path(path_anchors)
-    assert os.path.isfile(path_anchors), 'missing "%s"' % path_anchors
-    # path_output = update_path(path_output)
-    assert os.path.isdir(path_output), 'missing "%s"' % path_output
-    if path_classes is not None:
-        # path_classes = update_path(path_classes)
-        assert os.path.isfile(path_classes), 'missing "%s"' % path_classes
-    # return path_weights, path_anchors, path_classes, path_output
-
-
 def _main(path_weights, path_anchors, model_image_size, path_classes, path_output,
           gpu_num=0, **kwargs):
-    path_assers(path_weights, path_anchors, path_classes, path_output)
 
     yolo = YOLO(weights_path=path_weights, anchors_path=path_anchors,
                 classes_path=path_classes, model_image_size=model_image_size,

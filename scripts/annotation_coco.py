@@ -14,12 +14,16 @@ Creating training file from COCO dataset
 """
 
 import os
+import sys
 import logging
 import argparse
 import json
 from collections import defaultdict
 
 import tqdm
+
+sys.path += [os.path.abspath('.'), os.path.abspath('..')]
+from yolo3.utils import update_path
 
 
 def parse_arguments():
@@ -31,6 +35,9 @@ def parse_arguments():
     parser.add_argument('--path_output', type=str, required=False, default='.',
                         help='Path to output folder.')
     arg_params = vars(parser.parse_args())
+    for k in (k for k in arg_params if 'path' in k):
+        arg_params[k] = update_path(arg_params[k])
+        assert os.path.exists(arg_params[k]), 'missing (%s): %s' % (k, arg_params[k])
     logging.debug('PARAMETERS: %s', repr(arg_params))
     return arg_params
 
@@ -68,13 +75,6 @@ def get_bounding_box(info):
 
 
 def _main(path_annot, path_images, path_output):
-    path_annot = os.path.abspath(os.path.expanduser(path_annot))
-    assert os.path.isfile(path_annot), 'missing: %s' % path_annot
-    path_dataset = os.path.abspath(os.path.expanduser(path_images))
-    assert os.path.isdir(path_dataset), 'missing: %s' % path_dataset
-    path_output = os.path.abspath(os.path.expanduser(path_output))
-    assert os.path.isdir(path_output), 'missing: %s' % path_output
-
     name_box_id = defaultdict(list)
     logging.info('loading annotations "%s"', path_annot)
     with open(path_annot, encoding='utf-8') as fp:

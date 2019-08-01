@@ -11,15 +11,9 @@ import numpy as np
 from keras import backend as K
 from keras.models import load_model
 from keras.layers import Input
-try:
-    from keras.utils import multi_gpu_model
-except ImportError:
-    logging.warning('Keras function `multi_gpu_model` was not found.')
+from keras.utils import multi_gpu_model
 
-    def multi_gpu_model(model, **kwargs):
-        return model
-
-from yolo3.model import yolo_eval, yolo_body, tiny_yolo_body
+from yolo3.model import yolo_eval, yolo_body, yolo_body_tiny
 from yolo3.utils import letterbox_image, update_path, get_anchors, get_class_names
 from yolo3.visual import draw_bounding_box
 
@@ -95,18 +89,19 @@ class YOLO(object):
         except Exception:
             logging.exception('Loading weights from "%s"', self.weights_path)
             if is_tiny_version:
-                self.yolo_model = tiny_yolo_body(Input(shape=(None, None, 3)),
+                self.yolo_model = yolo_body_tiny(Input(shape=(None, None, 3)),
                                                  num_anchors // 2, num_classes)
             else:
                 self.yolo_model = yolo_body(Input(shape=(None, None, 3)),
                                             num_anchors // 3, num_classes)
             # make sure model, anchors and classes match
-            self.yolo_model.load_weights(self.weights_path)
+            self.yolo_model.load_weights(self.weights_path, by_name=True, skip_mismatch=True)
         else:
             out_shape = self.yolo_model.layers[-1].output_shape[-1]
             ration_anchors = num_anchors / len(self.yolo_model.output) * (num_classes + 5)
             assert out_shape == ration_anchors, \
-                'Mismatch between model and given anchor and class sizes'
+                'Mismatch between model and given anchor %r and class %r sizes' \
+                % (ration_anchors, out_shape)
 
         logging.info('loaded model, anchors, and classes from %s',
                      self.weights_path)

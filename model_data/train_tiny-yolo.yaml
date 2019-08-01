@@ -1,13 +1,20 @@
 image-size: [416, 416]
-batch-size: 32
-epochs_body: 50
-epochs_fine: 50
+batch-size:
+  bottlenecks: 16
+  body: 16
+  fine: 16
+epochs:
+  bottlenecks: 25
+  body: 50
+  fine: 30
 valid-split: 0.1
 generator:
   jitter: 0.3
   color_hue: 0.1
   color_sat: 1.5
   color_val: 1.5
-  proc_img: true
   flip_horizontal: true
   flip_vertical: false
+  proc_img: false
+  nb_threads: 1.4
+recompute-bottlenecks: false
