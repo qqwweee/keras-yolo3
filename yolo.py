@@ -171,6 +171,16 @@ class YOLO(object):
 
 def detect_video(yolo, video_path, output_path=""):
     import cv2
+    
+    # If the user supplies something that can be converted to an integer,
+    # then they probably want a live camera
+    try:
+        video_path = int(video_path)
+    except ValueError:
+        # The user did not supply something that can be treated as an
+        # integer, so they must want a file
+        pass
+    
     vid = cv2.VideoCapture(video_path)
     if not vid.isOpened():
         raise IOError("Couldn't open webcam or video")
