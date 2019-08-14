@@ -3,6 +3,7 @@
 Class definition of YOLO_v3 style detection model on image and video
 """
 
+import os
 import time
 import logging
 import colorsys
@@ -21,11 +22,31 @@ PREDICT_FIELDS = ('class', 'label', 'score', 'xmin', 'ymin', 'xmax', 'ymax')
 
 
 class YOLO(object):
+    """YOLO detector with tiny alternative
+
+    Example
+    -------
+    >>> # prepare EMPTY model since download and convert existing is a bit complicated
+    >>> anchors = get_anchors(YOLO.get_defaults('anchors_path'))
+    >>> classes = get_class_names(YOLO.get_defaults('classes_path'))
+    >>> yolo_empty = yolo_body_tiny(Input(shape=(None, None, 3)), len(anchors) // 2, len(classes))
+    >>> path_model = os.path.join(update_path('model_data'), 'yolo_empty.h5')
+    >>> yolo_empty.save(path_model)
+    >>> # use the empty one, so no reasonable detections are expected
+    >>> from yolo3.utils import image_open
+    >>> yolo = YOLO(weights_path=path_model,
+    ...             anchors_path=YOLO.get_defaults('anchors_path'),
+    ...             classes_path=YOLO.get_defaults('classes_path'),
+    ...             model_image_size=YOLO.get_defaults('model_image_size'))
+    >>> img = image_open(os.path.join(update_path('model_data'), 'bike-car-dog.jpg'))
+    >>> yolo.detect_image(img)  # doctest: +ELLIPSIS
+    (<PIL.JpegImagePlugin.JpegImageFile image mode=RGB size=520x518 at ...>, [...])
+    """
 
     _DEFAULT_PARAMS = {
-        "weights_path": 'model_data/tiny-yolo.h5',
-        "anchors_path": 'model_data/tiny-yolo_anchors.csv',
-        "classes_path": 'model_data/coco_classes.txt',
+        "weights_path": os.path.join(update_path('model_data'), 'tiny-yolo.h5'),
+        "anchors_path": os.path.join(update_path('model_data'), 'tiny-yolo_anchors.csv'),
+        "classes_path": os.path.join(update_path('model_data'), 'coco_classes.txt'),
         "score": 0.3,
         "iou": 0.45,
         "model_image_size": (416, 416),
@@ -65,14 +86,21 @@ class YOLO(object):
         self.boxes, self.scores, self.classes = self.generate()
 
     def _open_session(self):
-        self.sess = K.get_session()
+        if K.backend() == 'tensorflow':
+            import tensorflow as tf
+            from keras.backend.tensorflow_backend import set_session
 
-        # config = tf.ConfigProto(allow_soft_placement=True,
-        #                         log_device_placement=False)
-        # config.gpu_options.force_gpu_compatible = True
-        # # Don't pre-allocate memory; allocate as-needed
-        # config.gpu_options.allow_growth = True
-        # self.sess = tf.Session(config=config)
+            config = tf.ConfigProto(allow_soft_placement=True,
+                                    log_device_placement=False)
+            config.gpu_options.force_gpu_compatible = True
+            # config.gpu_options.per_process_gpu_memory_fraction = 0.5
+            # Don't pre-allocate memory; allocate as-needed
+            config.gpu_options.allow_growth = True
+
+            sess = tf.Session(config=config)
+            set_session(sess)
+
+        self.sess = K.get_session()
 
     def generate(self):
         # weights_path = update_path(self.weights_path)
@@ -143,7 +171,8 @@ class YOLO(object):
         image_data = np.array(boxed_image, dtype='float32')
 
         logging.debug('image shape: %s', repr(image_data.shape))
-        image_data /= 255.
+        if image_data.max() > 1.5:
+            image_data /= 255.
         image_data = np.expand_dims(image_data, 0)  # Add batch dimension.
 
         out_boxes, out_scores, out_classes = self.sess.run(
@@ -155,8 +184,7 @@ class YOLO(object):
             })
 
         end = time.time()
-
-        logging.debug('Found %i boxes', len(out_boxes))
+        logging.debug('Found %i boxes in %f sec.', len(out_boxes), (end - start))
 
         thickness = (image.size[0] + image.size[1]) // 300
 
@@ -170,8 +198,6 @@ class YOLO(object):
                  *[int(x) for x in out_boxes[i]])
             ))
             predicts.append(pred)
-
-        logging.debug('elapsed time: %f sec.', (end - start))
         return image, predicts
 
     def _close_session(self):

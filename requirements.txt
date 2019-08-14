@@ -1,7 +1,7 @@
 numpy
 matplotlib<3.0.0  # dropped support for py3.5 and lower
 Pillow
-keras>=2.1.0
+keras>=2.2.0
 pydot
 pydot-ng
 graphviz

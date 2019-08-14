@@ -1,7 +1,7 @@
 # keras-yolo3
 
 [![Build Status](https://travis-ci.org/Borda/keras-yolo3.svg?branch=master)](https://travis-ci.org/Borda/keras-yolo3)
-[![Build status](https://ci.appveyor.com/api/projects/status/24m00vife2wae7k0?svg=true)](https://ci.appveyor.com/project/Borda/keras-yolo3)
+[![Build status](https://ci.appveyor.com/api/projects/status/24m00vife2wae7k0/branch/master?svg=true)](https://ci.appveyor.com/project/Borda/keras-yolo3/branch/master)
 [![CircleCI](https://circleci.com/gh/Borda/keras-yolo3.svg?style=svg)](https://circleci.com/gh/Borda/keras-yolo3)
 [![codecov](https://codecov.io/gh/Borda/keras-yolo3/branch/master/graph/badge.svg)](https://codecov.io/gh/Borda/keras-yolo3)
 [![Codacy Badge](https://api.codacy.com/project/badge/Grade/e03dbbb0f0fd48baa70f637456f1fe36)](https://www.codacy.com/project/Borda/keras-yolo3/dashboard?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=Borda/keras-yolo3&amp;utm_campaign=Badge_Grade_Dashboard)

@@ -78,7 +78,16 @@ def make_last_layers(x, num_filters, out_filters):
 
 
 def yolo_body(inputs, num_anchors, num_classes):
-    """Create YOLO_V3 model CNN body in Keras."""
+    """Create YOLO_V3 model CNN body in Keras.
+
+    :param inputs:
+    :param int num_anchors:
+    :param int num_classes:
+    :return:
+
+    >>> yolo_body(Input(shape=(None, None, 3)), 6, 10)  #doctest: +ELLIPSIS
+    <keras.engine.training.Model object at ...>
+    """
     darknet = Model(inputs, darknet_body(inputs))
     x, y1 = make_last_layers(darknet.output, 512, num_anchors * (num_classes + 5))
 
@@ -98,7 +107,16 @@ def yolo_body(inputs, num_anchors, num_classes):
 
 
 def yolo_body_tiny(inputs, num_anchors, num_classes):
-    """Create Tiny YOLO_v3 model CNN body in keras."""
+    """Create Tiny YOLO_v3 model CNN body in keras.
+
+    :param inputs:
+    :param int num_anchors:
+    :param int num_classes:
+    :return:
+
+    >>> yolo_body_tiny(Input(shape=(None, None, 3)), 6, 10)  #doctest: +ELLIPSIS
+    <keras.engine.training.Model object at ...>
+    """
     x1 = compose(
         DarknetConv2D_BN_Leaky(16, (3, 3)),
         MaxPooling2D(pool_size=(2, 2), strides=(2, 2), padding='same'),
@@ -250,6 +268,15 @@ def box_iou(b1, b2):
     -------
     iou: tensor, shape=(i1,...,iN, j)
 
+    Example
+    -------
+    >>> bbox1 = K.variable(value=[250, 200, 150, 100], dtype='float32')
+    >>> bbox2 = K.variable(value=[300, 250, 100, 100], dtype='float32')
+    >>> iou = box_iou(bbox1, bbox2)
+    >>> iou
+    <tf.Tensor 'truediv_2:0' shape=(1,) dtype=float32>
+    >>> K.eval(iou)
+    array([0.1764706], dtype=float32)
     """
     # Expand dim to apply broadcasting.
     b1 = K.expand_dims(b1, -2)

@@ -5,7 +5,7 @@ Retrain the YOLO model for your own dataset.
         --path_dataset ./model_data/VOC_2007_train.txt \
         --path_weights ./model_data/tiny-yolo.h5 \
         --path_anchors ./model_data/tiny-yolo_anchors.csv \
-        --path_classes ./model_data/coco_classes.txt \
+        --path_classes ./model_data/voc_classes.txt \
         --path_output ./model_data \
         --path_config ./model_data/train_tiny-yolo.yaml
 
@@ -41,7 +41,7 @@ DEFAULT_CONFIG = {
         'color_hue': 0.1,
         'color_sat': 1.5,
         'color_val': 1.5,
-        'proc_img': True,
+        'resize_img': True,
         'flip_horizontal': True,
         'flip_vertical': False,
         'nb_threads': 0.5,
@@ -167,7 +167,7 @@ def _main(path_dataset, path_anchors, path_weights=None, path_output='.',
         t_start = time.time()
         model.fit_generator(_data_generator(lines_train, batch_size=config['batch-size']['body']),
                             steps_per_epoch=max(1, num_train // config['batch-size']['body']),
-                            validation_data=_data_generator(lines_valid, batch_size=config['batch-size']['body']),
+                            validation_data=_data_generator(lines_valid, augument=False),
                             validation_steps=max(1, num_val // config['batch-size']['body']),
                             epochs=config['epochs']['body'],
                             use_multiprocessing=False,
@@ -189,7 +189,7 @@ def _main(path_dataset, path_anchors, path_weights=None, path_output='.',
     t_start = time.time()
     model.fit_generator(_data_generator(lines_train, batch_size=config['batch-size']['body']),
                         steps_per_epoch=max(1, num_train // config['batch-size']['fine']),
-                        validation_data=_data_generator(lines_valid, batch_size=config['batch-size']['fine']),
+                        validation_data=_data_generator(lines_valid, augument=False),
                         validation_steps=max(1, num_val // config['batch-size']['fine']),
                         epochs=config['epochs']['body'] + config['epochs']['fine'],
                         use_multiprocessing=False,

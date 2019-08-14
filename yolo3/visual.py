@@ -10,6 +10,23 @@ from PIL import ImageDraw
 
 
 def draw_bounding_box(image, predicted_class, box, score, color, thickness):
+    """draw bounding box
+
+    :param image:
+    :param predicted_class:
+    :param box:
+    :param score:
+    :param color:
+    :param thickness:
+    :return:
+
+    >>> import os
+    >>> from yolo3.utils import update_path, image_open
+    >>> img = image_open(os.path.join(update_path('model_data'), 'bike-car-dog.jpg'))
+    >>> draw = draw_bounding_box(img, 1, [150, 200, 250, 300], 0.9, color=(255, 0, 0), thickness=3)
+    >>> draw  # doctest: +ELLIPSIS
+    <PIL.JpegImagePlugin.JpegImageFile image mode=RGB size=520x518 at ...>
+    """
     label_score = '{} ({:.2f})'.format(predicted_class, score)
 
     draw = ImageDraw.Draw(image)
@@ -30,7 +47,6 @@ def draw_bounding_box(image, predicted_class, box, score, color, thickness):
     else:
         text_origin = np.array([left, top + 1])
 
-    # My kingdom for a good redistributable image drawing library.
     for i in range(thickness):
         draw.rectangle([left + i, top + i, right - i, bottom - i],
                        outline=color)

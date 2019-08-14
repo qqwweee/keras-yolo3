@@ -28,15 +28,37 @@ jobs:
             codecov
 
       - run:
-          name: Sample run
+          name: Sample Detection
           command: |
             export DISPLAY=""
-            wget -O model_data/tiny-yolo.weights  https://pjreddie.com/media/files/yolov3-tiny.weights  --progress=bar:force:noscroll
-            python scripts/convert_weights.py --config_path model_data/tiny-yolo.cfg --weights_path model_data/tiny-yolo.weights --output_path model_data/tiny-yolo.h5
-            mkdir results
+            # download and conver weights
+            wget -O ./model_data/tiny-yolo.weights  https://pjreddie.com/media/files/yolov3-tiny.weights  --progress=bar:force:noscroll
+            python ./scripts/convert_weights.py --config_path ./model_data/tiny-yolo.cfg --weights_path ./model_data/tiny-yolo.weights --output_path ./model_data/tiny-yolo.h5
+            mkdir ./results
+            # download sample image and video
             wget -O ./results/dog.jpg https://raw.githubusercontent.com/pjreddie/darknet/master/data/dog.jpg
             wget -O ./results/volleyball.mp4  https://d2v9y0dukr6mq2.cloudfront.net/video/preview/UnK3Qzg/crowds-of-poeple-hot-summer-day-at-wasaga-beach-ontario-canada-during-heatwave_n2t3d8trl__SB_PM.mp4
+            # run sample detections
             python ./scripts/predict.py -w ./model_data/tiny-yolo.h5 -a ./model_data/tiny-yolo_anchors.csv --model_image_size 416 416 -c ./model_data/coco_classes.txt -o ./results -i ./results/dog.jpg -v ./results/volleyball.mp4
+            ls -l results/*
+
+      - run:
+          name: Sample Training
+          command: |
+            export DISPLAY=""
+            # download the dataset
+            wget -O ./model_data/VOCtrainval_2007.tar  http://host.robots.ox.ac.uk/pascal/VOC/voc2007/VOCtrainval_06-Nov-2007.tar
+            tar xopf ./model_data/VOCtrainval_2007.tar --directory ./model_data/
+            # prepare dataset for usage
+            python ./scripts/annotation_voc.py --path_dataset ./model_data/VOCdevkit --classes bicycle car person --sets 2007,train 2007,val --path_output ./model_data
+            # prepare very tlim training on 2 and 1 epoch
+            printf "image-size: [416, 416]\nbatch-size:\n  body: 4\n  fine: 4\nepochs:\n  body: 2\n  fine: 1\nvalid-split: 0.2\ngenerator:\n  augument: false\n  nb_threads: 1" > ./model_data/train_tiny-yolo_test.yaml
+            # cut the dataset size
+            python -c "lines = open('model_data/VOC_2007_val.txt', 'r').readlines(); open('model_data/VOC_2007_val.txt', 'w').writelines(lines[:250])"
+            # start the training
+            python ./scripts/train.py --path_dataset ./model_data/VOC_2007_val.txt --path_weights ./model_data/tiny-yolo.h5 --path_anchors ./model_data/tiny-yolo_anchors.csv --path_classes ./model_data/voc_classes.txt --path_output ./model_data --path_config ./model_data/train_tiny-yolo_test.yaml
+            # use the train model
+            python ./scripts/predict.py -w ./model_data/tiny-yolo_trained_final.h5 -a ./model_data/tiny-yolo_anchors.csv --model_image_size 416 416 -c ./model_data/voc_classes.txt -o ./results -i ./model_data/bike-car-dog.jpg
             ls -l results/*
 
       - store_test_results:
