@@ -1,9 +1,9 @@
 version: 2.0
 
 jobs:
-  Py2:
+  Py35:
     docker:
-      - image: circleci/python:2.7
+      - image: circleci/python:3.5
     steps: &steps
       - checkout
 
@@ -35,12 +35,12 @@ jobs:
             wget -O ./model_data/tiny-yolo.weights  https://pjreddie.com/media/files/yolov3-tiny.weights  --progress=bar:force:noscroll
             python ./scripts/convert_weights.py --config_path ./model_data/tiny-yolo.cfg --weights_path ./model_data/tiny-yolo.weights --output_path ./model_data/tiny-yolo.h5
             mkdir ./results
-            # download sample image and video
-            wget -O ./results/dog.jpg https://raw.githubusercontent.com/pjreddie/darknet/master/data/dog.jpg
+            # download sample video
             wget -O ./results/volleyball.mp4  https://d2v9y0dukr6mq2.cloudfront.net/video/preview/UnK3Qzg/crowds-of-poeple-hot-summer-day-at-wasaga-beach-ontario-canada-during-heatwave_n2t3d8trl__SB_PM.mp4
             # run sample detections
-            python ./scripts/predict.py -w ./model_data/tiny-yolo.h5 -a ./model_data/tiny-yolo_anchors.csv --model_image_size 416 416 -c ./model_data/coco_classes.txt -o ./results -i ./results/dog.jpg -v ./results/volleyball.mp4
+            python ./scripts/detection.py -w ./model_data/tiny-yolo.h5 -a ./model_data/tiny-yolo_anchors.csv --model_image_size 416 416 -c ./model_data/coco_classes.txt -o ./results -i ./model_data/bike-car-dog.jpg -v ./results/volleyball.mp4
             ls -l results/*
+            cat ./results/bike-car-dog.csv
 
       - run:
           name: Sample Training
@@ -56,9 +56,9 @@ jobs:
             # cut the dataset size
             python -c "lines = open('model_data/VOC_2007_val.txt', 'r').readlines(); open('model_data/VOC_2007_val.txt', 'w').writelines(lines[:250])"
             # start the training
-            python ./scripts/train.py --path_dataset ./model_data/VOC_2007_val.txt --path_weights ./model_data/tiny-yolo.h5 --path_anchors ./model_data/tiny-yolo_anchors.csv --path_classes ./model_data/voc_classes.txt --path_output ./model_data --path_config ./model_data/train_tiny-yolo_test.yaml
+            python ./scripts/training.py --path_dataset ./model_data/VOC_2007_val.txt --path_weights ./model_data/tiny-yolo.h5 --path_anchors ./model_data/tiny-yolo_anchors.csv --path_classes ./model_data/voc_classes.txt --path_output ./model_data --path_config ./model_data/train_tiny-yolo_test.yaml
             # use the train model
-            python ./scripts/predict.py -w ./model_data/tiny-yolo_trained_final.h5 -a ./model_data/tiny-yolo_anchors.csv --model_image_size 416 416 -c ./model_data/voc_classes.txt -o ./results -i ./model_data/bike-car-dog.jpg
+            python ./scripts/detection.py -w ./model_data/tiny-yolo_weights_final.h5 -a ./model_data/tiny-yolo_anchors.csv --model_image_size 416 416 -c ./model_data/voc_classes.txt -o ./results -i ./model_data/bike-car-dog.jpg
             ls -l results/*
 
       - store_test_results:
@@ -66,7 +66,7 @@ jobs:
       - store_artifacts:
           path: test-reports
 
-  Py3:
+  Py36:
     docker:
       - image: circleci/python:3.6
     steps: *steps
@@ -75,4 +75,5 @@ workflows:
   version: 2
   build:
     jobs:
-      - Py3
+      - Py35
+      - Py36

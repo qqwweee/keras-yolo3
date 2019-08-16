@@ -1,7 +1,7 @@
 """
 Detection in interactive mode
 
-python predict_interactive.py \
+python detect_interactive.py \
         --path_weights ./model_data/yolo3-tiny.h5 \
         --path_anchors ./model_data/tiny-yolo_anchors.csv \
         --path_classes ./model_data/coco_classes.txt \
@@ -17,7 +17,7 @@ import logging
 sys.path += [os.path.abspath('.'), os.path.abspath('..')]
 from yolo3.yolo import YOLO
 from yolo3.utils import update_path
-from scripts.predict import predict_image, predict_video, arg_params_yolo
+from scripts.detection import predict_image, predict_video, arg_params_yolo
 
 
 def parse_params():

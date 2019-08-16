@@ -14,7 +14,7 @@ from keras.models import load_model
 from keras.layers import Input
 from keras.utils import multi_gpu_model
 
-from yolo3.model import yolo_eval, yolo_body, yolo_body_tiny
+from yolo3.model import yolo_eval, yolo_body_full, yolo_body_tiny
 from yolo3.utils import letterbox_image, update_path, get_anchors, get_class_names
 from yolo3.visual import draw_bounding_box
 
@@ -83,7 +83,8 @@ class YOLO(object):
         self.class_names = get_class_names(self.classes_path)
         self.anchors = get_anchors(self.anchors_path)
         self._open_session()
-        self.boxes, self.scores, self.classes = self.generate()
+        self.boxes, self.scores, self.classes = self._create_model()
+        self._generate_class_colors()
 
     def _open_session(self):
         if K.backend() == 'tensorflow':
@@ -102,26 +103,25 @@ class YOLO(object):
 
         self.sess = K.get_session()
 
-    def generate(self):
+    def _create_model(self):
         # weights_path = update_path(self.weights_path)
         logging.debug('loading model from "%s"', self.weights_path)
-        assert self.weights_path.endswith('.h5'), \
-            'Keras model or weights must be a .h5 file.'
+        assert self.weights_path.endswith('.h5'), 'Keras model or weights must be a .h5 file.'
 
         # Load model, or construct model and load weights.
         num_anchors = len(self.anchors)
         num_classes = len(self.class_names)
-        is_tiny_version = (num_anchors == 6)  # default setting
         try:
             self.yolo_model = load_model(self.weights_path, compile=False)
         except Exception:
+            is_tiny_version = (num_anchors == 6)  # default setting
             logging.exception('Loading weights from "%s"', self.weights_path)
             if is_tiny_version:
                 self.yolo_model = yolo_body_tiny(Input(shape=(None, None, 3)),
                                                  num_anchors // 2, num_classes)
             else:
-                self.yolo_model = yolo_body(Input(shape=(None, None, 3)),
-                                            num_anchors // 3, num_classes)
+                self.yolo_model = yolo_body_full(Input(shape=(None, None, 3)),
+                                                 num_anchors // 3, num_classes)
             # make sure model, anchors and classes match
             self.yolo_model.load_weights(self.weights_path, by_name=True, skip_mismatch=True)
         else:
@@ -131,10 +131,24 @@ class YOLO(object):
                 'Mismatch between model and given anchor %r and class %r sizes' \
                 % (ration_anchors, out_shape)
 
-        logging.info('loaded model, anchors, and classes from %s',
-                     self.weights_path)
+        logging.info('loaded model, anchors (%i), and classes (%i) from %s',
+                     num_anchors, num_classes, self.weights_path)
 
-        # Generate colors for drawing bounding boxes.
+        # Generate output tensor targets for filtered bounding boxes.
+        self.input_image_shape = K.placeholder(shape=(2,))
+        if self.gpu_num >= 2:
+            self.yolo_model = multi_gpu_model(self.yolo_model, gpus=self.gpu_num)
+
+        boxes, scores, classes = yolo_eval(self.yolo_model.output,
+                                           self.anchors,
+                                           len(self.class_names),
+                                           self.input_image_shape,
+                                           score_threshold=self.score,
+                                           iou_threshold=self.iou)
+        return boxes, scores, classes
+
+    def _generate_class_colors(self):
+        """Generate colors for drawing bounding boxes."""
         hsv_tuples = [(x / len(self.class_names), 1., 1.)
                       for x in range(len(self.class_names))]
         self.colors = list(map(lambda x: colorsys.hsv_to_rgb(*x), hsv_tuples))
@@ -144,18 +158,6 @@ class YOLO(object):
         # Shuffle colors to decorrelate adjacent classes.
         np.random.shuffle(self.colors)
         np.random.seed(None)  # Reset seed to default.
-
-        # Generate output tensor targets for filtered bounding boxes.
-        self.input_image_shape = K.placeholder(shape=(2,))
-        if self.gpu_num >= 2:
-            self.yolo_model = multi_gpu_model(self.yolo_model, gpus=self.gpu_num)
-        boxes, scores, classes = yolo_eval(self.yolo_model.output,
-                                           self.anchors,
-                                           len(self.class_names),
-                                           self.input_image_shape,
-                                           score_threshold=self.score,
-                                           iou_threshold=self.iou)
-        return boxes, scores, classes
 
     def detect_image(self, image):
         start = time.time()

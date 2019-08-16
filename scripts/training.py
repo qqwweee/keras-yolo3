@@ -1,7 +1,7 @@
 """
 Retrain the YOLO model for your own dataset.
 
-    python train.py \
+    python training.py \
         --path_dataset ./model_data/VOC_2007_train.txt \
         --path_weights ./model_data/tiny-yolo.h5 \
         --path_anchors ./model_data/tiny-yolo_anchors.csv \
@@ -22,12 +22,11 @@ import yaml
 import numpy as np
 from keras.optimizers import Adam
 from keras.callbacks import TensorBoard, ModelCheckpoint, ReduceLROnPlateau, EarlyStopping
-from keras.layers import Input
 
 sys.path += [os.path.abspath('.'), os.path.abspath('..')]
-from yolo3.model import create_model, create_model_tiny, yolo_body, yolo_body_tiny
+from yolo3.model import create_model, create_model_tiny
 from yolo3.utils import update_path, get_anchors, get_dataset_class_names, get_nb_classes, data_generator
-from scripts.predict import arg_params_yolo
+from scripts.detection import arg_params_yolo
 
 DEFAULT_CONFIG = {
     'image-size': (416, 416),
@@ -90,6 +89,8 @@ def load_training_lines(path_annot, valid_split):
     num_val = max(1, int(len(lines) * valid_split))
     num_train = len(lines) - num_val
 
+    assert num_val > 0, 'there has to be at least one validation sample'
+    assert num_train > 0, 'there has to be at least one training sample'
     lines_train = lines[:num_train]
     lines_valid = lines[num_train:]
     return lines_train, lines_valid, num_val, num_train
@@ -111,14 +112,11 @@ def _export_model(model, is_tiny_version, image_size, anchors, nb_classes, path_
     logging.info('Exporting weights: %s', path_weights)
     model.save_weights(path_weights)
 
-    path_model = os.path.join(path_output, name_prefix + 'yolo_trained' + name_sufix + '.h5')
-    yolo_ = yolo_body_tiny if is_tiny_version else yolo_body
-    factor_ = 2 if is_tiny_version else 3
-    yolo_model = yolo_(Input(shape=(image_size[0], image_size[1], 3)), len(anchors) // factor_, nb_classes)
-    # make sure model, anchors and classes match
-    yolo_model.load_weights(path_weights, by_name=True, skip_mismatch=True)
-    logging.info('Exporting model: %s', path_weights)
-    yolo_model.save(path_model)
+    # WARNING: after this kind of saving it is impossible to load load with `load_model` due to NameError
+    #  for example NameError: name 'yolo_head' is not defined ; NameError: name 'tf' is not defined
+    # path_model = os.path.join(path_output, name_prefix + 'yolo_trained' + name_sufix + '.h5')
+    # logging.info('Exporting model: %s', path_weights)
+    # model.save(path_model)
 
 
 def _main(path_dataset, path_anchors, path_weights=None, path_output='.',
@@ -143,8 +141,10 @@ def _main(path_dataset, path_anchors, path_weights=None, path_output='.',
                                  save_weights_only=True,
                                  save_best_only=True,
                                  period=3)
-    reduce_lr = ReduceLROnPlateau(monitor='val_loss', factor=0.1, patience=3, verbose=1)
-    early_stopping = EarlyStopping(monitor='val_loss', min_delta=0, patience=25, verbose=1)
+    reduce_lr = ReduceLROnPlateau(monitor='val_loss', verbose=1,
+                                  **config.get('CB_learning-rate', {}))
+    early_stopping = EarlyStopping(monitor='val_loss', verbose=1,
+                                   **config.get('CB_stopping', {}))
 
     lines_train, lines_valid, num_val, num_train = load_training_lines(path_dataset,
                                                                        config['valid-split'])
@@ -157,6 +157,10 @@ def _main(path_dataset, path_anchors, path_weights=None, path_output='.',
                               anchors=anchors,
                               nb_classes=nb_classes,
                               **config['generator'])
+
+    # Save the model architecture
+    with open(os.path.join(path_output, name_prefix + 'yolo_architect.yaml'), 'w') as fp:
+        fp.write(model.to_yaml())
 
     if config['epochs']['body'] > 0:
         model.compile(optimizer=Adam(lr=1e-3),

@@ -77,7 +77,7 @@ def make_last_layers(x, num_filters, out_filters):
     return x, y
 
 
-def yolo_body(inputs, num_anchors, num_classes):
+def yolo_body_full(inputs, num_anchors, num_classes):
     """Create YOLO_V3 model CNN body in Keras.
 
     :param inputs:
@@ -85,7 +85,7 @@ def yolo_body(inputs, num_anchors, num_classes):
     :param int num_classes:
     :return:
 
-    >>> yolo_body(Input(shape=(None, None, 3)), 6, 10)  #doctest: +ELLIPSIS
+    >>> yolo_body_full(Input(shape=(None, None, 3)), 6, 10)  #doctest: +ELLIPSIS
     <keras.engine.training.Model object at ...>
     """
     darknet = Model(inputs, darknet_body(inputs))
@@ -164,7 +164,7 @@ def yolo_head(feats, anchors, num_classes, input_shape, calc_loss=False):
     feats = K.reshape(feats, [-1, grid_shape[0], grid_shape[1],
                               num_anchors, num_classes + 5])
 
-    # Adjust preditions to each spatial grid point and anchor size.
+    # Adjust predictions to each spatial grid point and anchor size.
     box_xy = (K.sigmoid(feats[..., :2]) + grid) / K.cast(grid_shape[::-1], K.dtype(feats))
     box_wh = K.exp(feats[..., 2:4]) * anchors_tensor / K.cast(input_shape[::-1], K.dtype(feats))
     box_confidence = K.sigmoid(feats[..., 4:5])
@@ -201,7 +201,7 @@ def yolo_correct_boxes(box_xy, box_wh, input_shape, image_shape):
     return boxes
 
 
-def yolo_boxes_and_scores(feats, anchors, num_classes, input_shape, image_shape):
+def yolo_boxes_scores(feats, anchors, num_classes, input_shape, image_shape):
     """Process Conv layer output"""
     box_xy, box_wh, box_confidence, box_class_probs = \
         yolo_head(feats, anchors, num_classes, input_shape)
@@ -222,10 +222,10 @@ def yolo_eval(yolo_outputs, anchors, num_classes, image_shape, max_boxes=20,
     boxes = []
     box_scores = []
     for l in range(num_layers):
-        _boxes, _box_scores = yolo_boxes_and_scores(yolo_outputs[l],
-                                                    anchors[anchor_mask[l]],
-                                                    num_classes, input_shape,
-                                                    image_shape)
+        _boxes, _box_scores = yolo_boxes_scores(yolo_outputs[l],
+                                                anchors[anchor_mask[l]],
+                                                num_classes, input_shape,
+                                                image_shape)
         boxes.append(_boxes)
         box_scores.append(_box_scores)
     boxes = K.concatenate(boxes, axis=0)
@@ -310,7 +310,7 @@ def yolo_loss(args, anchors, num_classes, ignore_thresh=0.5, print_loss=False):
 
     Parameters
     ----------
-    yolo_outputs: list of tensor, the output of yolo_body or yolo_body_tiny
+    yolo_outputs: list of tensor, the output of yolo_body_full or yolo_body_tiny
     y_true: list of array, the output of preprocess_true_boxes
     anchors: array, shape=(N, 2), wh
     num_classes: integer
@@ -401,7 +401,7 @@ def create_model(input_shape, anchors, num_classes, weights_path=None, model_fac
                  freeze_body=2, ignore_thresh=0.5, gpu_num=1):
     """create the training model"""
     _INPUT_SHAPES = {0: 32, 1: 16, 2: 8, 3: 4}
-    _FACTOR_YOLO_BODY = {2: yolo_body_tiny, 3: yolo_body}
+    _FACTOR_YOLO_BODY = {2: yolo_body_tiny, 3: yolo_body_full}
     _FACTOR_FREEZEING = {2: 20, 3: 185}
     _LOSS_ARGUMENTS = {
         'anchors': anchors,
@@ -409,7 +409,7 @@ def create_model(input_shape, anchors, num_classes, weights_path=None, model_fac
         'ignore_thresh': ignore_thresh
     }
 
-    K.clear_session()  # get a new session
+    # K.clear_session()  # get a new session
     image_input = Input(shape=(None, None, 3))
     h, w = input_shape
     num_anchors = len(anchors)
@@ -477,7 +477,7 @@ def create_model_bottleneck(input_shape, anchors, num_classes, freeze_body=2,
         'ignore_thresh': 0.5
     }
 
-    model_body = yolo_body(image_input, num_anchors // 3, num_classes)
+    model_body = yolo_body_full(image_input, num_anchors // 3, num_classes)
     logging.info('Create YOLOv3 model with %i anchors and %i classes.',
                  num_anchors, num_classes)
 

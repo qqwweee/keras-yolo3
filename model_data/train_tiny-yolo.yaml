@@ -7,6 +7,12 @@ epochs:
   bottlenecks: 25
   body: 50
   fine: 30
+CB_learning-rate:
+  factor: 0.05
+  patience: 3
+CB_stopping:
+  min_delta: 0
+  patience: 25
 valid-split: 0.1
 generator:
   jitter: 0.3

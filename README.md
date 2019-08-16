@@ -34,7 +34,7 @@ For more model and configuration please see  [YOLO website](http://pjreddie.com/
     ```
 3. Run YOLO detection.
     ```bash
-    python3 scripts/predict.py \
+    python3 scripts/detection.py \
        --path_weights ./model_data/yolo.h5 \
        --path_anchors ./model_data/yolo_anchors.csv \
        --path_classes ./model_data/coco_classes.txt \
@@ -68,7 +68,7 @@ For training you can use [VOC dataset](http://host.robots.ox.ac.uk/pascal/VOC/),
     ```
 2. Make sure you have run `python scripts/convert_weights.py <...>`.
     The file `model_data/yolo_weights.h5` is used to load pre-trained weights.
-3. Modify train.py and start training.  `python train.py`.
+3. Modify training.py and start training.  `python training.py`.
     Use your trained weights or checkpoint weights with command line option `--model model_file` when using `yolo_interactive.py`.
     Remember to modify class path or anchor path, with `--classes class_file` and `--anchors anchor_file`.
 
@@ -76,7 +76,7 @@ If you want to use original pre-trained weights for YOLOv3:
   1. `wget https://pjreddie.com/media/files/darknet53.conv.74`  
   2. rename it as `darknet53.weights`  
   3. `python convert.py -w darknet53.cfg darknet53.weights model_data/darknet53_weights.h5`  
-  4. use `model_data/darknet53_weights.h5` in `train.py`
+  4. use `model_data/darknet53_weights.h5` in `training.py`
 
 ---
 

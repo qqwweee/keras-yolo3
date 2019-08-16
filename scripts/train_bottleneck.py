@@ -22,7 +22,7 @@ from keras.callbacks import TensorBoard, ModelCheckpoint, ReduceLROnPlateau, Ear
 sys.path += [os.path.abspath('.'), os.path.abspath('..')]
 from yolo3.model import create_model_bottleneck
 from yolo3.utils import get_anchors, get_nb_classes, data_generator, generator_bottleneck, get_dataset_class_names
-from scripts.train import parse_params, load_config, load_training_lines, _export_classes, _export_model
+from scripts.training import parse_params, load_config, load_training_lines, _export_classes, _export_model
 
 
 DEFAULT_CONFIG = {

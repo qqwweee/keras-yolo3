@@ -1,7 +1,7 @@
 """
 Detections script::
 
-    python predict.py \
+    python detection.py \
         --path_weights ./model_data/yolo3-tiny.h5 \
         --path_anchors ./model_data/tiny-yolo_anchors.csv \
         --path_classes ./model_data/coco_classes.txt \
