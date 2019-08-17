@@ -1,11 +1,18 @@
+"""
+
+"""
+
+import logging
+
 import numpy as np
+import pandas as pd
 
 
 class YOLO_Kmeans:
 
     def __init__(self, cluster_number, filename):
         self.cluster_number = cluster_number
-        self.filename = "2012_train.txt"
+        self.filename = filename
 
     def iou(self, boxes, clusters):  # 1 box -> k clusters
         n = boxes.shape[0]
@@ -37,7 +44,7 @@ class YOLO_Kmeans:
 
     def kmeans(self, boxes, k, dist=np.median):
         box_number = boxes.shape[0]
-        distances = np.empty((box_number, k))
+        # distances = np.empty((box_number, k))
         last_nearest = np.zeros((box_number,))
         np.random.seed()
         clusters = boxes[np.random.choice(
@@ -57,31 +64,23 @@ class YOLO_Kmeans:
 
         return clusters
 
-    def result2txt(self, data):
-        f = open("yolo_anchors.txt", 'w')
-        row = np.shape(data)[0]
-        for i in range(row):
-            if i == 0:
-                x_y = "%d,%d" % (data[i][0], data[i][1])
-            else:
-                x_y = ", %d,%d" % (data[i][0], data[i][1])
-            f.write(x_y)
-        f.close()
+    @staticmethod
+    def result2txt(data, file_name='yolo_anchors.csv'):
+        pd.DataFrame(data).to_csv(file_name, header=None, index=None)
 
     def txt2boxes(self):
-        f = open(self.filename, 'r')
+        with open(self.filename, 'r') as fp:
+            lines = fp.readlines()
         dataSet = []
-        for line in f:
-            infos = line.split(" ")
+        for line in lines:
+            infos = line.split(' ')
             length = len(infos)
             for i in range(1, length):
-                width = int(infos[i].split(",")[2]) - \
-                    int(infos[i].split(",")[0])
-                height = int(infos[i].split(",")[3]) - \
-                    int(infos[i].split(",")[1])
+                split_info = [int(x) for x in infos[i].split(',')]
+                width = split_info[2] - split_info[0]
+                height = split_info[3] - split_info[1]
                 dataSet.append([width, height])
         result = np.array(dataSet)
-        f.close()
         return result
 
     def txt2clusters(self):
@@ -89,13 +88,12 @@ class YOLO_Kmeans:
         result = self.kmeans(all_boxes, k=self.cluster_number)
         result = result[np.lexsort(result.T[0, None])]
         self.result2txt(result)
-        print("K anchors:\n {}".format(result))
-        print("Accuracy: {:.2f}%".format(
-            self.avg_iou(all_boxes, result) * 100))
+        logging.info('K anchors:\n %s', repr(result))
+        logging.info('Accuracy: %f', self.avg_iou(all_boxes, result) * 100)
 
 
 if __name__ == "__main__":
     cluster_number = 9
-    filename = "2012_train.txt"
+    filename = '2012_train.txt'
     kmeans = YOLO_Kmeans(cluster_number, filename)
     kmeans.txt2clusters()
