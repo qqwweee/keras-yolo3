@@ -1,0 +1,13 @@
+numpy
+matplotlib<3.0.0  # dropped support for py3.5 and lower
+Pillow
+keras>=2.2.0
+pydot
+pydot-ng
+graphviz
+tensorflow>=1.4.0
+pandas
+opencv-python
+tqdm
+pathos
+PyYAML

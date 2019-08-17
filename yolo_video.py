@@ -13,7 +13,7 @@ def detect_img(yolo):
             continue
         else:
             r_image = yolo.detect_image(image)
-            r_image.show()
+            r_image[0].show()
     yolo.close_session()
 
 FLAGS = None
@@ -69,6 +69,9 @@ if __name__ == '__main__':
         """
         print("Image detection mode")
         if "input" in FLAGS:
+            print("Flags: ", FLAGS)
+            print("Flags type: ", type(FLAGS))
+            print("Flags argument: ", vars(FLAGS))
             print(" Ignoring remaining command line arguments: " + FLAGS.input + "," + FLAGS.output)
         detect_img(YOLO(**vars(FLAGS)))
     elif "input" in FLAGS:

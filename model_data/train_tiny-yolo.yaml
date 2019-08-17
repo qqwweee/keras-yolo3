@@ -1,0 +1,20 @@
+image-size: [416, 416]
+batch-size:
+  bottlenecks: 16
+  body: 16
+  fine: 16
+epochs:
+  bottlenecks: 25
+  body: 50
+  fine: 30
+valid-split: 0.1
+generator:
+  jitter: 0.3
+  color_hue: 0.1
+  color_sat: 1.5
+  color_val: 1.5
+  flip_horizontal: true
+  flip_vertical: false
+  resize_img: false
+  nb_threads: 0.9
+recompute-bottlenecks: false
