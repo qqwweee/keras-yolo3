@@ -12,12 +12,23 @@ from keras.callbacks import TensorBoard, ModelCheckpoint, ReduceLROnPlateau, Ear
 from yolo3.model import preprocess_true_boxes, yolo_body, tiny_yolo_body, yolo_loss
 from yolo3.utils import get_random_data
 
+import argparse
 
-def _main():
-    annotation_path = 'train.txt'
-    log_dir = 'logs/000/'
-    classes_path = 'model_data/voc_classes.txt'
-    anchors_path = 'model_data/yolo_anchors.txt'
+parser = argparse.ArgumentParser(description="Command Line Tool to Train YOLOv3")
+
+parser.add_argument('--annotation', default='train.txt', help='Path to .txt Annotation File', type=str)
+parser.add_argument('--log_dir', default='logs/000/', help='Path to Log the TensorBoard and Save Model', type=str)
+parser.add_argument('--class_path', default='model_data/voc_classes.txt', help='Path to Classes File', type=str)
+parser.add_argument('--anchor_path', default='model_data/yolo_anchors.txt', help='Path to Anchors File', type=str)
+parser.add_argument('--batch_size', default=64, help='Batch Size', type=int)
+parser.add_argument('--use_lrn', action='store_true', help='Whether to use LRN instead of BatchNormalization Layer')
+
+
+def _main(args):
+    annotation_path = args.annotation
+    log_dir = args.log_dir
+    classes_path = args.class_path
+    anchors_path = args.anchor_path
     class_names = get_classes(classes_path)
     num_classes = len(class_names)
     anchors = get_anchors(anchors_path)
@@ -31,6 +42,8 @@ def _main():
     else:
         model = create_model(input_shape, anchors, num_classes,
             freeze_body=2, weights_path='model_data/yolo_weights.h5') # make sure you know what you freeze
+
+    model.summary()
 
     logging = TensorBoard(log_dir=log_dir)
     checkpoint = ModelCheckpoint(log_dir + 'ep{epoch:03d}-loss{loss:.3f}-val_loss{val_loss:.3f}.h5',
@@ -54,13 +67,13 @@ def _main():
             # use custom yolo_loss Lambda layer.
             'yolo_loss': lambda y_true, y_pred: y_pred})
 
-        batch_size = 32
+        batch_size = args.batch_size
         print('Train on {} samples, val on {} samples, with batch size {}.'.format(num_train, num_val, batch_size))
         model.fit_generator(data_generator_wrapper(lines[:num_train], batch_size, input_shape, anchors, num_classes),
                 steps_per_epoch=max(1, num_train//batch_size),
                 validation_data=data_generator_wrapper(lines[num_train:], batch_size, input_shape, anchors, num_classes),
                 validation_steps=max(1, num_val//batch_size),
-                epochs=50,
+                epochs=75,
                 initial_epoch=0,
                 callbacks=[logging, checkpoint])
         model.save_weights(log_dir + 'trained_weights_stage_1.h5')
@@ -73,14 +86,14 @@ def _main():
         model.compile(optimizer=Adam(lr=1e-4), loss={'yolo_loss': lambda y_true, y_pred: y_pred}) # recompile to apply the change
         print('Unfreeze all of the layers.')
 
-        batch_size = 32 # note that more GPU memory is required after unfreezing the body
+        batch_size = 16 # note that more GPU memory is required after unfreezing the body
         print('Train on {} samples, val on {} samples, with batch size {}.'.format(num_train, num_val, batch_size))
         model.fit_generator(data_generator_wrapper(lines[:num_train], batch_size, input_shape, anchors, num_classes),
             steps_per_epoch=max(1, num_train//batch_size),
             validation_data=data_generator_wrapper(lines[num_train:], batch_size, input_shape, anchors, num_classes),
             validation_steps=max(1, num_val//batch_size),
-            epochs=100,
-            initial_epoch=50,
+            epochs=125,
+            initial_epoch=75,
             callbacks=[logging, checkpoint, reduce_lr, early_stopping])
         model.save_weights(log_dir + 'trained_weights_final.h5')
 
@@ -113,7 +126,7 @@ def create_model(input_shape, anchors, num_classes, load_pretrained=True, freeze
     y_true = [Input(shape=(h//{0:32, 1:16, 2:8}[l], w//{0:32, 1:16, 2:8}[l], \
         num_anchors//3, num_classes+5)) for l in range(3)]
 
-    model_body = yolo_body(image_input, num_anchors//3, num_classes)
+    model_body = yolo_body(image_input, num_anchors//3, num_classes, args.use_lrn)
     print('Create YOLOv3 model with {} anchors and {} classes.'.format(num_anchors, num_classes))
 
     if load_pretrained:
@@ -143,7 +156,7 @@ def create_tiny_model(input_shape, anchors, num_classes, load_pretrained=True, f
     y_true = [Input(shape=(h//{0:32, 1:16}[l], w//{0:32, 1:16}[l], \
         num_anchors//2, num_classes+5)) for l in range(2)]
 
-    model_body = tiny_yolo_body(image_input, num_anchors//2, num_classes)
+    model_body = tiny_yolo_body(image_input, num_anchors//2, num_classes, args.use_lrn)
     print('Create Tiny YOLOv3 model with {} anchors and {} classes.'.format(num_anchors, num_classes))
 
     if load_pretrained:
@@ -187,4 +200,5 @@ def data_generator_wrapper(annotation_lines, batch_size, input_shape, anchors, n
     return data_generator(annotation_lines, batch_size, input_shape, anchors, num_classes)
 
 if __name__ == '__main__':
-    _main()
+    args = parser.parse_args()
+    _main(args)
