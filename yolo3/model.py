@@ -284,7 +284,9 @@ def preprocess_true_boxes(true_boxes, input_shape, anchors, num_classes):
     for b in range(m):
         # Discard zero rows.
         wh = boxes_wh[b, valid_mask[b]]
-        if not len(wh): continue
+        len_wh = len(wh)
+        if not len_wh:
+            continue
         # Expand dim to apply broadcasting.
         wh = np.expand_dims(wh, -2)
         box_maxes = wh / 2.
