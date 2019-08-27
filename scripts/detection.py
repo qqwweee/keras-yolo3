@@ -99,6 +99,10 @@ def predict_video(yolo, path_video, path_output=None):
     path_video = update_path(path_video)
     # Create a video capture object to read videos
     try:
+        path_video = int(path_video)
+    except Exception:
+        pass  # not usiong web cam
+    try:
         video = cv2.VideoCapture(path_video)
     except Exception:
         logging.warning('missing: %s', path_video)
