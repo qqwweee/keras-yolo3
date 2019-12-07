@@ -37,10 +37,10 @@ positional arguments:
 
 optional arguments:
   -h, --help         show this help message and exit
-  --model MODEL      path to model weight file, default model_data/yolo.h5
+  --model_path MODEL      path to model weight file, default model_data/yolo.h5
   --anchors ANCHORS  path to anchor definitions, default
                      model_data/yolo_anchors.txt
-  --classes CLASSES  path to class definitions, default
+  --classes_path CLASSES  path to class definitions, default
                      model_data/coco_classes.txt
   --gpu_num GPU_NUM  Number of GPU to use, default 1
   --image            Image detection mode, will ignore all positional arguments
