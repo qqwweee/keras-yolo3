@@ -13,7 +13,7 @@ from collections import defaultdict
 import numpy as np
 from keras import backend as K
 from keras.layers import (Conv2D, Input, ZeroPadding2D, Add,
-                          UpSampling2D, MaxPooling2D, Concatenate)
+                          UpSampling2D, MaxPooling2D, Concatenate, Activation)
 from keras.layers.advanced_activations import LeakyReLU
 from keras.layers.normalization import BatchNormalization
 from keras.models import Model
@@ -154,7 +154,7 @@ def _main(args):
 
             # Handle activation.
             act_fn = None
-            if activation == 'leaky':
+            if activation == 'leaky' or activation == 'relu':
                 pass  # Add advanced activation later.
             elif activation != 'linear':
                 raise ValueError(
@@ -183,6 +183,10 @@ def _main(args):
                 all_layers.append(prev_layer)
             elif activation == 'leaky':
                 act_layer = LeakyReLU(alpha=0.1)(prev_layer)
+                prev_layer = act_layer
+                all_layers.append(act_layer)
+            elif activation == 'relu':
+                act_layer = Activation("relu")(prev_layer)
                 prev_layer = act_layer
                 all_layers.append(act_layer)
 
