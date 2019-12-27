@@ -84,8 +84,11 @@ def _main(args):
     cfg_parser = configparser.ConfigParser()
     cfg_parser.read_file(unique_config_file)
 
+    width = float(cfg_parser["net_0"]["width"])
+    height = float(cfg_parser["net_0"]["height"])
+
     print('Creating Keras model.')
-    input_layer = Input(shape=(None, None, 3))
+    input_layer = Input(shape=(height, width, 3))
     prev_layer = input_layer
     all_layers = []
 
@@ -185,7 +188,7 @@ def _main(args):
                 act_layer = LeakyReLU(alpha=0.1)(prev_layer)
                 prev_layer = act_layer
                 all_layers.append(act_layer)
-            elif activation == 'relu':
+            elif activation == 'relu': # Added ReLU activation
                 act_layer = Activation("relu")(prev_layer)
                 prev_layer = act_layer
                 all_layers.append(act_layer)
