@@ -2,6 +2,18 @@
 
 [![license](https://img.shields.io/github/license/mashape/apistatus.svg)](LICENSE)
 
+<p align="center">
+<b><a href="#introduction">Introduction</a></b>
+|
+<b><a href="#quick-start">Quick Start</a></b>
+|
+<b><a href="#usage">Usage</a></b>
+|
+<b><a href="#training">Training</a></b>
+|
+<b><a href="#some-issues-to-know">Some issues to know</a></b>
+</p>
+
 ## Introduction
 
 A Keras implementation of YOLOv3 (Tensorflow backend) inspired by [allanzelener/YAD2K](https://github.com/allanzelener/YAD2K).
@@ -22,9 +34,9 @@ python yolo_video.py [OPTIONS...] --image, for image detection mode, OR
 python yolo_video.py [video_path] [output_path (optional)]
 ```
 
-For Tiny YOLOv3, just do in a similar way, just specify model path and anchor path with `--model model_file` and `--anchors anchor_file`.
+For Tiny YOLOv3, just do in a similar way, just specify the model path and anchor path with `--model model_file` and `--anchors anchor_file`.
 
-### Usage
+## Usage
 Use --help to see usage of yolo_video.py:
 ```
 usage: yolo_video.py [-h] [--model MODEL] [--anchors ANCHORS]
@@ -64,14 +76,14 @@ optional arguments:
     ```
 
 2. Make sure you have run `python convert.py -w yolov3.cfg yolov3.weights model_data/yolo_weights.h5`  
-    The file model_data/yolo_weights.h5 is used to load pretrained weights.
+    The file model_data/yolo_weights.h5 is used to load pre-trained weights.
 
 3. Modify train.py and start training.  
     `python train.py`  
-    Use your trained weights or checkpoint weights with command line option `--model model_file` when using yolo_video.py
+    Use your trained weights or checkpoint weights with command-line option `--model model_file` when using yolo_video.py
     Remember to modify class path or anchor path, with `--classes class_file` and `--anchors anchor_file`.
 
-If you want to use original pretrained weights for YOLOv3:  
+If you want to use original pre-trained weights for YOLOv3:  
     1. `wget https://pjreddie.com/media/files/darknet53.conv.74`  
     2. rename it as darknet53.weights  
     3. `python convert.py -w darknet53.cfg darknet53.weights model_data/darknet53_weights.h5`  
@@ -84,16 +96,16 @@ If you want to use original pretrained weights for YOLOv3:
 1. The test environment is
     - Python 3.5.2
     - Keras 2.1.5
-    - tensorflow 1.6.0
+    - Tensorflow 1.6.0
 
 2. Default anchors are used. If you use your own anchors, probably some changes are needed.
 
 3. The inference result is not totally the same as Darknet but the difference is small.
 
-4. The speed is slower than Darknet. Replacing PIL with opencv may help a little.
+4. The speed is slower than Darknet. Replacing PIL with OpenCV may help a little.
 
-5. Always load pretrained weights and freeze layers in the first stage of training. Or try Darknet training. It's OK if there is a mismatch warning.
+5. Always load pre-trained weights and freeze layers in the first stage of training or try Darknet training. It's OK if there is a mismatch warning.
 
-6. The training strategy is for reference only. Adjust it according to your dataset and your goal. And add further strategy if needed.
+6. The training strategy is for reference only. Adjust it according to your dataset and your goal. Add further strategy if needed. 
 
 7. For speeding up the training process with frozen layers train_bottleneck.py can be used. It will compute the bottleneck features of the frozen model first and then only trains the last layers. This makes training on CPU possible in a reasonable time. See [this](https://blog.keras.io/building-powerful-image-classification-models-using-very-little-data.html) for more information on bottleneck features.
