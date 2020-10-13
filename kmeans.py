@@ -2,7 +2,6 @@ import numpy as np
 
 
 class YOLO_Kmeans:
-
     def __init__(self, cluster_number, filename):
         self.cluster_number = cluster_number
         self.filename = "2012_train.txt"
@@ -40,8 +39,9 @@ class YOLO_Kmeans:
         distances = np.empty((box_number, k))
         last_nearest = np.zeros((box_number,))
         np.random.seed()
-        clusters = boxes[np.random.choice(
-            box_number, k, replace=False)]  # init k clusters
+        clusters = boxes[
+            np.random.choice(box_number, k, replace=False)
+        ]  # init k clusters
         while True:
 
             distances = 1 - self.iou(boxes, clusters)
@@ -51,14 +51,15 @@ class YOLO_Kmeans:
                 break  # clusters won't change
             for cluster in range(k):
                 clusters[cluster] = dist(  # update clusters
-                    boxes[current_nearest == cluster], axis=0)
+                    boxes[current_nearest == cluster], axis=0
+                )
 
             last_nearest = current_nearest
 
         return clusters
 
     def result2txt(self, data):
-        f = open("yolo_anchors.txt", 'w')
+        f = open("yolo_anchors.txt", "w")
         row = np.shape(data)[0]
         for i in range(row):
             if i == 0:
@@ -69,16 +70,14 @@ class YOLO_Kmeans:
         f.close()
 
     def txt2boxes(self):
-        f = open(self.filename, 'r')
+        f = open(self.filename, "r")
         dataSet = []
         for line in f:
             infos = line.split(" ")
             length = len(infos)
             for i in range(1, length):
-                width = int(infos[i].split(",")[2]) - \
-                    int(infos[i].split(",")[0])
-                height = int(infos[i].split(",")[3]) - \
-                    int(infos[i].split(",")[1])
+                width = int(infos[i].split(",")[2]) - int(infos[i].split(",")[0])
+                height = int(infos[i].split(",")[3]) - int(infos[i].split(",")[1])
                 dataSet.append([width, height])
         result = np.array(dataSet)
         f.close()
@@ -90,8 +89,7 @@ class YOLO_Kmeans:
         result = result[np.lexsort(result.T[0, None])]
         self.result2txt(result)
         print("K anchors:\n {}".format(result))
-        print("Accuracy: {:.2f}%".format(
-            self.avg_iou(all_boxes, result) * 100))
+        print("Accuracy: {:.2f}%".format(self.avg_iou(all_boxes, result) * 100))
 
 
 if __name__ == "__main__":
