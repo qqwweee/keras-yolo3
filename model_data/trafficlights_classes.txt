@@ -1,0 +1,8 @@
+unknown
+ped-blue
+ped-red
+ped-unknown
+car-blue
+car-red
+car-yellow
+car-unknown
