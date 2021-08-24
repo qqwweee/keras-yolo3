@@ -11,6 +11,10 @@ from tensorflow.keras.models import load_model
 from tensorflow.keras.layers import Input
 from PIL import Image, ImageFont, ImageDraw
 from timeit import default_timer as timer
+
+from yolo3.model import yolo_eval, yolo_body, tiny_yolo_body
+from yolo3.utils import letterbox_image
+
 class YOLO(object):
     _defaults = {
         "model_path": 'model_data/yolo.h5',
