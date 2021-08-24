@@ -14,7 +14,6 @@ def detect_img(yolo):
         else:
             r_image = yolo.detect_image(image)
             r_image.show()
-    yolo.close_session()
 
 FLAGS = None
 
