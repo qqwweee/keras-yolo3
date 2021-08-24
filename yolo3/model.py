@@ -123,7 +123,7 @@ def yolo_head(feats, anchors, num_classes, input_shape, calc_loss=False):
     # Reshape to batch, height, width, num_anchors, box_params.
     anchors_tensor = tf.reshape(K.constant(anchors), [1, 1, 1, num_anchors, 2])
 
-    grid_shape = K.shape(feats).numpy()[1:3] # height, width
+    grid_shape = K.shape(feats)[1:3] # height, width
     grid_y = tf.tile(K.reshape(K.arange(0, stop=grid_shape[0]), [-1, 1, 1, 1]),
         [1, grid_shape[1], 1, 1])
     grid_x = tf.tile(K.reshape(K.arange(0, stop=grid_shape[1]), [1, -1, 1, 1]),
@@ -192,7 +192,7 @@ def yolo_eval(yolo_outputs,
     """Evaluate YOLO model on given input and return filtered boxes."""
     num_layers = len(yolo_outputs)
     anchor_mask = [[6,7,8], [3,4,5], [0,1,2]] if num_layers==3 else [[3,4,5], [1,2,3]] # default setting
-    input_shape = K.shape(yolo_outputs[0]).numpy()[1:3] * 32
+    input_shape = K.shape(yolo_outputs[0])[1:3] * 32
     boxes = []
     box_scores = []
     for l in range(num_layers):
