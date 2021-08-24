@@ -3,20 +3,17 @@
 Class definition of YOLO_v3 style detection model on image and video
 """
 
-import colorsys
 import os
-from timeit import default_timer as timer
-
+import colorsys
 import numpy as np
-from keras import backend as K
-from keras.models import load_model
-from keras.layers import Input
+import tensorflow.keras.backend as K
+from tensorflow.keras.models import load_model
+from tensorflow.keras.layers import Input
 from PIL import Image, ImageFont, ImageDraw
+from timeit import default_timer as timer
 
 from yolo3.model import yolo_eval, yolo_body, tiny_yolo_body
 from yolo3.utils import letterbox_image
-import os
-from keras.utils import multi_gpu_model
 
 class YOLO(object):
     _defaults = {
@@ -41,7 +38,6 @@ class YOLO(object):
         self.__dict__.update(kwargs) # and update with user overrides
         self.class_names = self._get_class()
         self.anchors = self._get_anchors()
-        self.sess = K.get_session()
         self.boxes, self.scores, self.classes = self.generate()
 
     def _get_class(self):
@@ -93,10 +89,13 @@ class YOLO(object):
         # Generate output tensor targets for filtered bounding boxes.
         self.input_image_shape = K.placeholder(shape=(2, ))
         if self.gpu_num>=2:
-            self.yolo_model = multi_gpu_model(self.yolo_model, gpus=self.gpu_num)
+            strategy = tf.distribute.MirroredStrategy()
+            with strategy.scope():
+                self.yolo_model = load_model(model_path, compile=False)
         boxes, scores, classes = yolo_eval(self.yolo_model.output, self.anchors,
                 len(self.class_names), self.input_image_shape,
                 score_threshold=self.score, iou_threshold=self.iou)
+                
         return boxes, scores, classes
 
     def detect_image(self, image):
@@ -116,13 +115,9 @@ class YOLO(object):
         image_data /= 255.
         image_data = np.expand_dims(image_data, 0)  # Add batch dimension.
 
-        out_boxes, out_scores, out_classes = self.sess.run(
-            [self.boxes, self.scores, self.classes],
-            feed_dict={
-                self.yolo_model.input: image_data,
-                self.input_image_shape: [image.size[1], image.size[0]],
-                K.learning_phase(): 0
-            })
+        out_boxes, out_scores, out_classes = yolo_eval(self.yolo_model.predict(image_data), self.anchors,
+                len(self.class_names), (image_data.shape[0], image_data.shape[0]),
+                score_threshold=self.score, iou_threshold=self.iou)
 
         print('Found {} boxes for {}'.format(len(out_boxes), 'img'))
 
@@ -166,8 +161,6 @@ class YOLO(object):
         print(end - start)
         return image
 
-    def close_session(self):
-        self.sess.close()
 
 def detect_video(yolo, video_path, output_path=""):
     import cv2
@@ -208,5 +201,4 @@ def detect_video(yolo, video_path, output_path=""):
             out.write(result)
         if cv2.waitKey(1) & 0xFF == ord('q'):
             break
-    yolo.close_session()
 

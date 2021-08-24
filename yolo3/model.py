@@ -4,12 +4,10 @@ from functools import wraps
 
 import numpy as np
 import tensorflow as tf
-from keras import backend as K
-from keras.layers import Conv2D, Add, ZeroPadding2D, UpSampling2D, Concatenate, MaxPooling2D
-from keras.layers.advanced_activations import LeakyReLU
-from keras.layers.normalization import BatchNormalization
-from keras.models import Model
-from keras.regularizers import l2
+from tensorflow.keras import backend as K
+from tensorflow.keras.layers import Conv2D, Add, ZeroPadding2D, UpSampling2D, Concatenate, MaxPooling2D, LeakyReLU, BatchNormalization
+from tensorflow.keras.models import Model
+from tensorflow.keras.regularizers import l2
 
 from yolo3.utils import compose
 
@@ -123,22 +121,22 @@ def yolo_head(feats, anchors, num_classes, input_shape, calc_loss=False):
     """Convert final layer features to bounding box parameters."""
     num_anchors = len(anchors)
     # Reshape to batch, height, width, num_anchors, box_params.
-    anchors_tensor = K.reshape(K.constant(anchors), [1, 1, 1, num_anchors, 2])
+    anchors_tensor = tf.reshape(K.constant(anchors), [1, 1, 1, num_anchors, 2])
 
     grid_shape = K.shape(feats)[1:3] # height, width
-    grid_y = K.tile(K.reshape(K.arange(0, stop=grid_shape[0]), [-1, 1, 1, 1]),
+    grid_y = tf.tile(K.reshape(K.arange(0, stop=grid_shape[0]), [-1, 1, 1, 1]),
         [1, grid_shape[1], 1, 1])
-    grid_x = K.tile(K.reshape(K.arange(0, stop=grid_shape[1]), [1, -1, 1, 1]),
+    grid_x = tf.tile(K.reshape(K.arange(0, stop=grid_shape[1]), [1, -1, 1, 1]),
         [grid_shape[0], 1, 1, 1])
     grid = K.concatenate([grid_x, grid_y])
-    grid = K.cast(grid, K.dtype(feats))
+    grid = tf.cast(grid, feats.dtype)
 
     feats = K.reshape(
         feats, [-1, grid_shape[0], grid_shape[1], num_anchors, num_classes + 5])
 
     # Adjust preditions to each spatial grid point and anchor size.
-    box_xy = (K.sigmoid(feats[..., :2]) + grid) / K.cast(grid_shape[::-1], K.dtype(feats))
-    box_wh = K.exp(feats[..., 2:4]) * anchors_tensor / K.cast(input_shape[::-1], K.dtype(feats))
+    box_xy = (K.sigmoid(feats[..., :2]) + grid) / tf.cast(grid_shape[::-1], feats.dtype)
+    box_wh = K.exp(feats[..., 2:4]) * anchors_tensor / tf.cast(input_shape[::-1], feats.dtype)
     box_confidence = K.sigmoid(feats[..., 4:5])
     box_class_probs = K.sigmoid(feats[..., 5:])
 
@@ -151,8 +149,8 @@ def yolo_correct_boxes(box_xy, box_wh, input_shape, image_shape):
     '''Get corrected boxes'''
     box_yx = box_xy[..., ::-1]
     box_hw = box_wh[..., ::-1]
-    input_shape = K.cast(input_shape, K.dtype(box_yx))
-    image_shape = K.cast(image_shape, K.dtype(box_yx))
+    input_shape = tf.cast(input_shape, box_yx.dtype)
+    image_shape = tf.cast(image_shape, box_yx.dtype)
     new_shape = K.round(image_shape * K.min(input_shape/image_shape))
     offset = (input_shape-new_shape)/2./input_shape
     scale = input_shape/new_shape
@@ -362,11 +360,11 @@ def yolo_loss(args, anchors, num_classes, ignore_thresh=.5, print_loss=False):
     yolo_outputs = args[:num_layers]
     y_true = args[num_layers:]
     anchor_mask = [[6,7,8], [3,4,5], [0,1,2]] if num_layers==3 else [[3,4,5], [1,2,3]]
-    input_shape = K.cast(K.shape(yolo_outputs[0])[1:3] * 32, K.dtype(y_true[0]))
-    grid_shapes = [K.cast(K.shape(yolo_outputs[l])[1:3], K.dtype(y_true[0])) for l in range(num_layers)]
+    input_shape = tf.cast(K.shape(yolo_outputs[0])[1:3] * 32, y_true[0].dtype)
+    grid_shapes = [tf.cast(K.shape(yolo_outputs[l])[1:3], y_true[0].dtype) for l in range(num_layers)]
     loss = 0
     m = K.shape(yolo_outputs[0])[0] # batch size, tensor
-    mf = K.cast(m, K.dtype(yolo_outputs[0]))
+    mf = tf.cast(m, yolo_outputs[0].dtype)
 
     for l in range(num_layers):
         object_mask = y_true[l][..., 4:5]
@@ -383,13 +381,13 @@ def yolo_loss(args, anchors, num_classes, ignore_thresh=.5, print_loss=False):
         box_loss_scale = 2 - y_true[l][...,2:3]*y_true[l][...,3:4]
 
         # Find ignore mask, iterate over each of batch.
-        ignore_mask = tf.TensorArray(K.dtype(y_true[0]), size=1, dynamic_size=True)
-        object_mask_bool = K.cast(object_mask, 'bool')
+        ignore_mask = tf.TensorArray(y_true[0].dtype, size=1, dynamic_size=True)
+        object_mask_bool = tf.cast(object_mask, 'bool')
         def loop_body(b, ignore_mask):
             true_box = tf.boolean_mask(y_true[l][b,...,0:4], object_mask_bool[b,...,0])
             iou = box_iou(pred_box[b], true_box)
             best_iou = K.max(iou, axis=-1)
-            ignore_mask = ignore_mask.write(b, K.cast(best_iou<ignore_thresh, K.dtype(true_box)))
+            ignore_mask = ignore_mask.write(b, tf.cast(best_iou<ignore_thresh, true_box.dtype)))
             return b+1, ignore_mask
         _, ignore_mask = K.control_flow_ops.while_loop(lambda b,*args: b<m, loop_body, [0, ignore_mask])
         ignore_mask = ignore_mask.stack()

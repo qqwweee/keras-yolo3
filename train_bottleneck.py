@@ -3,11 +3,11 @@ Retrain the YOLO model for your own dataset.
 """
 import os
 import numpy as np
-import keras.backend as K
-from keras.layers import Input, Lambda
-from keras.models import Model
-from keras.optimizers import Adam
-from keras.callbacks import TensorBoard, ModelCheckpoint, ReduceLROnPlateau, EarlyStopping
+import tensorflow.keras.backend as K
+from tensorflow.keras.layers import Input, Lambda
+from tensorflow.keras.models import Model
+from tensorflow.keras.optimizers import Adam
+from tensorflow.keras.callbacks import TensorBoard, ModelCheckpoint, ReduceLROnPlateau, EarlyStopping
 
 from yolo3.model import preprocess_true_boxes, yolo_body, tiny_yolo_body, yolo_loss
 from yolo3.utils import get_random_data
@@ -63,7 +63,7 @@ def _main():
         print("Training last layers with bottleneck features")
         print('with {} samples, val on {} samples and batch size {}.'.format(num_train, num_val, batch_size))
         last_layer_model.compile(optimizer='adam', loss={'yolo_loss': lambda y_true, y_pred: y_pred})
-        last_layer_model.fit_generator(bottleneck_generator(lines[:num_train], batch_size, input_shape, anchors, num_classes, bottlenecks_train),
+        last_layer_model.fit(bottleneck_generator(lines[:num_train], batch_size, input_shape, anchors, num_classes, bottlenecks_train),
                 steps_per_epoch=max(1, num_train//batch_size),
                 validation_data=bottleneck_generator(lines[num_train:], batch_size, input_shape, anchors, num_classes, bottlenecks_val),
                 validation_steps=max(1, num_val//batch_size),
@@ -77,7 +77,7 @@ def _main():
             'yolo_loss': lambda y_true, y_pred: y_pred})
         batch_size = 16
         print('Train on {} samples, val on {} samples, with batch size {}.'.format(num_train, num_val, batch_size))
-        model.fit_generator(data_generator_wrapper(lines[:num_train], batch_size, input_shape, anchors, num_classes),
+        model.fit(data_generator_wrapper(lines[:num_train], batch_size, input_shape, anchors, num_classes),
                 steps_per_epoch=max(1, num_train//batch_size),
                 validation_data=data_generator_wrapper(lines[num_train:], batch_size, input_shape, anchors, num_classes),
                 validation_steps=max(1, num_val//batch_size),
@@ -96,7 +96,7 @@ def _main():
 
         batch_size = 4 # note that more GPU memory is required after unfreezing the body
         print('Train on {} samples, val on {} samples, with batch size {}.'.format(num_train, num_val, batch_size))
-        model.fit_generator(data_generator_wrapper(lines[:num_train], batch_size, input_shape, anchors, num_classes),
+        model.fit(data_generator_wrapper(lines[:num_train], batch_size, input_shape, anchors, num_classes),
             steps_per_epoch=max(1, num_train//batch_size),
             validation_data=data_generator_wrapper(lines[num_train:], batch_size, input_shape, anchors, num_classes),
             validation_steps=max(1, num_val//batch_size),
@@ -126,7 +126,6 @@ def get_anchors(anchors_path):
 def create_model(input_shape, anchors, num_classes, load_pretrained=True, freeze_body=2,
             weights_path='model_data/yolo_weights.h5'):
     '''create the training model'''
-    K.clear_session() # get a new session
     image_input = Input(shape=(None, None, 3))
     h, w = input_shape
     num_anchors = len(anchors)
@@ -174,7 +173,7 @@ def create_model(input_shape, anchors, num_classes, load_pretrained=True, freeze
     return model, bottleneck_model, last_layer_model
 
 def data_generator(annotation_lines, batch_size, input_shape, anchors, num_classes, random=True, verbose=False):
-    '''data generator for fit_generator'''
+    '''data generator for fit'''
     n = len(annotation_lines)
     i = 0
     while True:
