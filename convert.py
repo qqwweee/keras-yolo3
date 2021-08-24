@@ -1,6 +1,6 @@
 #! /usr/bin/env python
 """
-Reads Darknet config and weights and creates Keras model with TF backend.
+Reads Darknet config and weights and creates tensorflow.keras model with TF backend.
 
 """
 
@@ -11,29 +11,27 @@ import os
 from collections import defaultdict
 
 import numpy as np
-from keras import backend as K
-from keras.layers import (Conv2D, Input, ZeroPadding2D, Add,
-                          UpSampling2D, MaxPooling2D, Concatenate)
-from keras.layers.advanced_activations import LeakyReLU
-from keras.layers.normalization import BatchNormalization
-from keras.models import Model
-from keras.regularizers import l2
-from keras.utils.vis_utils import plot_model as plot
+from tensorflow.keras import backend as K
+from tensorflow.keras.layers import Conv2D, Input, ZeroPadding2D, Add,UpSampling2D, MaxPooling2D,LeakyReLU,Concatenate,BatchNormalization
+
+from tensorflow.keras.models import Model
+from tensorflow.keras.regularizers import l2
+from tensorflow.keras.utils import plot_model as plot
 
 
-parser = argparse.ArgumentParser(description='Darknet To Keras Converter.')
+parser = argparse.ArgumentParser(description='Darknet To tensorflow.keras Converter.')
 parser.add_argument('config_path', help='Path to Darknet cfg file.')
 parser.add_argument('weights_path', help='Path to Darknet weights file.')
-parser.add_argument('output_path', help='Path to output Keras model file.')
+parser.add_argument('output_path', help='Path to output tensorflow.keras model file.')
 parser.add_argument(
     '-p',
     '--plot_model',
-    help='Plot generated Keras model and save as image.',
+    help='Plot generated tensorflow.keras model and save as image.',
     action='store_true')
 parser.add_argument(
     '-w',
     '--weights_only',
-    help='Save as Keras weights file instead of model file.',
+    help='Save as tensorflow.keras weights file instead of model file.',
     action='store_true')
 
 def unique_config_sections(config_file):
@@ -84,7 +82,7 @@ def _main(args):
     cfg_parser = configparser.ConfigParser()
     cfg_parser.read_file(unique_config_file)
 
-    print('Creating Keras model.')
+    print('Creating tensorflow.keras model.')
     input_layer = Input(shape=(None, None, 3))
     prev_layer = input_layer
     all_layers = []
@@ -240,10 +238,10 @@ def _main(args):
     print(model.summary())
     if args.weights_only:
         model.save_weights('{}'.format(output_path))
-        print('Saved Keras weights to {}'.format(output_path))
+        print('Saved tensorflow.keras weights to {}'.format(output_path))
     else:
         model.save('{}'.format(output_path))
-        print('Saved Keras model to {}'.format(output_path))
+        print('Saved tensorflow.keras model to {}'.format(output_path))
 
     # Check to see if all weights have been read.
     remaining_weights = len(weights_file.read()) / 4
