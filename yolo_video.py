@@ -2,6 +2,10 @@ import sys
 import argparse
 from yolo import YOLO, detect_video
 from PIL import Image
+import tensorflow.compat.v1.keras.backend as K
+import tensorflow as tf 
+
+tf.compat.v1.disable_eager_execution()
 
 def detect_img(yolo):
     while True:
@@ -25,7 +29,7 @@ if __name__ == '__main__':
     Command line options
     '''
     parser.add_argument(
-        '--model', type=str,
+        '--model_path', type=str,
         help='path to model weight file, default ' + YOLO.get_defaults("model_path")
     )
 
