@@ -8,15 +8,20 @@ import os
 from timeit import default_timer as timer
 
 import numpy as np
-from keras import backend as K
-from keras.models import load_model
-from keras.layers import Input
+import tensorflow.compat.v1.keras.backend as K
+from tensorflow.compat.v1.keras.backend import get_session
+from tensorflow.keras.models import load_model
+from tensorflow.keras.layers import Input
 from PIL import Image, ImageFont, ImageDraw
 
 from yolo3.model import yolo_eval, yolo_body, tiny_yolo_body
 from yolo3.utils import letterbox_image
 import os
-from keras.utils import multi_gpu_model
+from tensorflow.python.keras.utils.multi_gpu_utils import multi_gpu_model
+
+from tensorflow.python.framework.ops import disable_eager_execution
+disable_eager_execution()
+
 
 class YOLO(object):
     _defaults = {
@@ -41,7 +46,7 @@ class YOLO(object):
         self.__dict__.update(kwargs) # and update with user overrides
         self.class_names = self._get_class()
         self.anchors = self._get_anchors()
-        self.sess = K.get_session()
+        self.sess = get_session()
         self.boxes, self.scores, self.classes = self.generate()
 
     def _get_class(self):
