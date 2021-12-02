@@ -22,10 +22,9 @@ from tensorflow.python.keras.utils.multi_gpu_utils import multi_gpu_model
 from tensorflow.python.framework.ops import disable_eager_execution
 disable_eager_execution()
 
-
 class YOLO(object):
     _defaults = {
-        "model_path": 'model_data/yolo.h5',
+        "model_path": 'model_data/test.h5',
         "anchors_path": 'model_data/yolo_anchors.txt',
         "classes_path": 'model_data/coco_classes.txt',
         "score" : 0.3,

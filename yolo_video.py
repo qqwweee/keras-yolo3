@@ -2,6 +2,10 @@ import sys
 import argparse
 from yolo import YOLO, detect_video
 from PIL import Image
+import tensorflow.compat.v1.keras.backend as K
+import tensorflow as tf 
+
+tf.compat.v1.disable_eager_execution()
 
 def detect_img(yolo):
     while True:
