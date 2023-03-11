@@ -6,10 +6,11 @@ import numpy as np
 import tensorflow as tf
 from keras import backend as K
 from keras.layers import Conv2D, Add, ZeroPadding2D, UpSampling2D, Concatenate, MaxPooling2D
-from keras.layers.advanced_activations import LeakyReLU
-from keras.layers.normalization import BatchNormalization
+from keras.layers import LeakyReLU, BatchNormalization
 from keras.models import Model
 from keras.regularizers import l2
+from tensorflow.python.framework.ops import disable_eager_execution
+disable_eager_execution()
 
 from yolo3.utils import compose
 
