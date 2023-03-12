@@ -9,7 +9,7 @@ from yolo3.model import preprocess_true_boxes, yolo_body, tiny_yolo_body, yolo_l
 from yolo3.utils import get_random_data
 
 def _main():
-    annotation_path = '/content/bennu_info/mars_anno.txt'
+    annotation_path = '/content/moon_info/mars_anno.txt'
 
     log_dir = 'logs/000/'
     classes_path = '/content/keras-yolo3/model_data/mars_classes.txt'
